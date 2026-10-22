@@ -317,9 +317,17 @@ export default function App() {
     setIsBusy(false); setMenuOpen(false);
   };
   const exportTour = async () => {
-    setIsBusy(true); try { const { exportTourZip } = await import('./lib/tour-export'); downloadBlob(await exportTourZip(project), (project.name || 'luxe360-tour').replace(/[^\w-]+/g, '-').toLowerCase() + '-tour.zip'); notify('Standalone tour ZIP exported.', 'success'); }
-    catch (error) { notify(error instanceof Error ? error.message : 'Tour export failed.', 'error'); }
-    setIsBusy(false); setMenuOpen(false);
+    setIsBusy(true);
+    try {
+      const { auditTourExport, exportTourZip } = await import('./lib/tour-export');
+      const audit = auditTourExport(project);
+      if (audit.errors.length) throw new Error(audit.errors.slice(0, 4).join(' '));
+      if (audit.warnings.length && !window.confirm(`Export preflight found:\n\n${audit.warnings.map((warning) => `• ${warning}`).join('\n\n')}\n\nThe ZIP will keep the original panorama image bytes unchanged. Continue exporting this tour?`)) return;
+      const filename = (project.name || 'luxe360-tour').replace(/[^\w-]+/g, '-').toLowerCase() + '-tour.zip';
+      downloadBlob(await exportTourZip(project), filename);
+      notify(`Tour ZIP exported: ${audit.sceneCount} panoramas, ${audit.hotspotCount} hotspots, ${audit.connectionCount} navigation links. Original image bytes preserved.`, 'success');
+    } catch (error) { notify(error instanceof Error ? error.message : 'Tour export failed.', 'error'); }
+    finally { setIsBusy(false); setMenuOpen(false); }
   };
   const restoreProject = async (file?: File) => {
     if (!file) return;

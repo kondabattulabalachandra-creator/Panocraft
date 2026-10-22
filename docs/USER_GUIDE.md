@@ -44,6 +44,8 @@ Use **Project → Export project backup** to download a `.luxe360.json` containi
 
 Use the top-bar **Export** button or **Project → Export standalone tour ZIP** to create a static website package. Extract the ZIP and serve it from a static HTTP server with the directory structure intact. The ZIP includes its panorama images, hotspot appearance/labels/actions, `index.html`, tour configuration, local Pannellum files, stylesheet, and Pannellum license notice. This is not a Google Maps upload.
 
+The website export includes one original image asset for every scene and stores those image bytes without resizing, re-encoding, or image compression. Export preflight blocks invalid navigation destinations and warns if scenes cannot be reached from the start scene or an image is not close to 2:1. Cancel and add the missing hotspot connections for a fully navigable tour, or explicitly continue with the warning. Images must already be stitched into 2:1 equirectangular 360° panoramas before import; the editor does not stitch raw photos during export.
+
 ## Optional Google Street View publishing
 
 The **Google publishing** panel is a separate, user-initiated workflow. Before it can submit anything, configure a Google Cloud project, enable the Street View Publish API, set up OAuth consent, create a web OAuth client, and allow the exact deployed origin. Enter only the public client ID ending in `.apps.googleusercontent.com`; never enter a client secret. Authorization uses Google's consent screen and holds the returned access token in memory for the current tab.

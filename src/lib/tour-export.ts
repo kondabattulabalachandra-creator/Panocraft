@@ -47,8 +47,87 @@ function exportHotspot(hotspot: Hotspot, source: Project['scenes'][number], scen
   };
 }
 
+export type TourExportAudit = {
+  errors: string[];
+  warnings: string[];
+  sceneCount: number;
+  hotspotCount: number;
+  connectionCount: number;
+};
+
+export function auditTourExport(project: Project): TourExportAudit {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const scenesById = new Map<string, Project['scenes'][number]>();
+  const ratioWarnings: string[] = [];
+  const adjacency = new Map<string, string[]>();
+  let hotspotCount = 0;
+  let connectionCount = 0;
+
+  for (const scene of project.scenes) {
+    if (!scene.id.trim()) errors.push(`Scene “${scene.name || 'Untitled'}” is missing a stable ID.`);
+    else if (scenesById.has(scene.id)) errors.push(`Duplicate scene ID “${scene.id}” prevents a complete export.`);
+    else scenesById.set(scene.id, scene);
+
+    if (!scene.blob || typeof scene.blob.size !== 'number' || scene.blob.size === 0) errors.push(`Scene “${scene.name || 'Untitled'}” has no original panorama image data.`);
+    const mimeType = typeof scene.mimeType === 'string' ? scene.mimeType.toLowerCase() : '';
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+      errors.push(`Scene “${scene.name || 'Untitled'}” is not a supported JPEG, PNG, or WebP panorama.`);
+    }
+    const ratio = scene.width / scene.height;
+    if (!Number.isFinite(ratio) || ratio < 1.9 || ratio > 2.1) ratioWarnings.push(scene.name || 'Untitled scene');
+
+    if (!Array.isArray(scene.hotspots)) {
+      errors.push(`Scene “${scene.name || 'Untitled'}” has invalid hotspot data.`);
+      continue;
+    }
+    const hotspotIds = new Set<string>();
+    for (const hotspot of scene.hotspots) {
+      hotspotCount++;
+      if (!hotspot.id || hotspotIds.has(hotspot.id)) errors.push(`Scene “${scene.name || 'Untitled'}” has a duplicate or missing hotspot ID.`);
+      hotspotIds.add(hotspot.id);
+
+      const action = hotspot.action || (hotspot.targetSceneId ? 'navigate' : 'none');
+      if (action !== 'navigate') continue;
+      const destination = scenesById.get(hotspot.targetSceneId) || project.scenes.find((item) => item.id === hotspot.targetSceneId);
+      if (!destination) {
+        errors.push(`Hotspot “${hotspot.label || 'Untitled hotspot'}” in “${scene.name || 'Untitled'}” has no valid destination scene.`);
+        continue;
+      }
+      connectionCount++;
+      const links = adjacency.get(scene.id) || [];
+      links.push(destination.id);
+      adjacency.set(scene.id, links);
+    }
+  }
+
+  if (project.scenes.length === 0) errors.push('Add at least one panorama before exporting a tour.');
+  if (ratioWarnings.length) warnings.push(`Not close to 2:1: ${ratioWarnings.join(', ')}. Confirm these are already-stitched 360° equirectangular panoramas.`);
+
+  const requestedStart = project.scenes.find((scene) => scene.id === project.startSceneId);
+  const start = requestedStart || project.scenes[0];
+  if (project.startSceneId && !requestedStart) warnings.push('The saved start scene is missing; the first scene will be used as the tour entry.');
+  if (start) {
+    const reachable = new Set<string>([start.id]);
+    const queue = [start.id];
+    while (queue.length) {
+      const currentId = queue.shift()!;
+      for (const destinationId of adjacency.get(currentId) || []) {
+        if (reachable.has(destinationId)) continue;
+        reachable.add(destinationId);
+        queue.push(destinationId);
+      }
+    }
+    const disconnected = project.scenes.filter((scene) => !reachable.has(scene.id));
+    if (disconnected.length) warnings.push(`Not reachable from the start scene: ${disconnected.map((scene) => scene.name || 'Untitled').join(', ')}. Add navigation hotspots to connect every room.`);
+  }
+
+  return { errors: [...new Set(errors)], warnings, sceneCount: project.scenes.length, hotspotCount, connectionCount };
+}
+
 export async function exportTourZip(project: Project): Promise<Blob> {
-  if (!project.scenes.length) throw new Error('Add at least one panorama before exporting a tour.');
+  const audit = auditTourExport(project);
+  if (audit.errors.length) throw new Error(audit.errors.slice(0, 4).join(' '));
   const zip = new JSZip();
   const files: Record<string, string> = {};
   const used = new Set<string>();
@@ -58,14 +137,14 @@ export async function exportTourZip(project: Project): Promise<Blob> {
     used.add(slug);
     const ext = scene.mimeType === 'image/png' ? 'png' : scene.mimeType === 'image/webp' ? 'webp' : 'jpg';
     files[scene.id] = `assets/${slug}.${ext}`;
-    zip.file(files[scene.id], scene.blob);
+    zip.file(files[scene.id], scene.blob, { compression: 'STORE' });
   }
   const tour = {
     title: project.name,
     default: { firstScene: project.startSceneId && files[project.startSceneId] ? project.startSceneId : project.scenes[0].id, yaw: signedAngle(project.scenes.find((scene) => scene.id === project.startSceneId)?.heading ?? project.scenes[0].heading), pitch: 0, autoLoad: true, showControls: true, sceneFadeDuration: 350 },
     scenes: Object.fromEntries(project.scenes.map((scene) => [scene.id, {
       title: scene.name, type: 'equirectangular', panorama: files[scene.id], yaw: signedAngle(scene.heading), pitch: 0,
-      hotSpots: scene.hotspots.filter((h) => h.targetSceneId ? Boolean(files[h.targetSceneId]) : true).map((h) => exportHotspot(h, scene, project.scenes))
+      hotSpots: scene.hotspots.map((h) => exportHotspot(h, scene, project.scenes))
     }]))
   };
   const tourJson = JSON.stringify(tour).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
@@ -80,6 +159,6 @@ viewer=pannellum.viewer('panorama',tour);viewer.on('zoomchange',function(){const
   zip.file('vendor/pannellum.css', pannellumCss);
   zip.file('vendor/PANNELLUM-LICENSE.txt', pannellumLicense);
   zip.file('vendor/tour.css', 'html,body{margin:0;height:100%;font-family:system-ui,sans-serif;color:#e9e9e6;background:#111416}header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#181c1f;border-bottom:1px solid #2a3033}header strong{font-size:14px}header span,footer{font-size:11px;color:#a3abad}footer{height:32px;display:flex;align-items:center;justify-content:center}#panorama{height:calc(100% - 84px);width:100%}.pnlm-hotspot.luxe-export-hotspot{width:auto!important;height:auto!important;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0!important;border:0!important;background:transparent!important;overflow:visible!important;cursor:pointer}.export-icon{box-sizing:border-box;display:grid;place-items:center;border:1px solid #ffffffa8;border-radius:50%;background:#fdfefa;color:#284c3f;box-shadow:0 4px 17px #0003,0 0 0 5px #fff3;transition:transform .15s;backface-visibility:hidden}.export-icon svg{width:58%;height:58%}.export-icon img{display:block;width:82%;height:82%;object-fit:contain}.export-custom-icon{display:block;width:74%;height:74%;mask-size:contain;-webkit-mask-size:contain;mask-position:center;-webkit-mask-position:center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat}.pnlm-hotspot.luxe-export-hotspot:not(.export-shadow) .export-icon,.pnlm-hotspot.luxe-export-hotspot:not(.export-shadow) .export-label{box-shadow:none}.export-label{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;border-radius:6px;box-shadow:0 2px 12px #0002}.export-shadow:not(.export-hover) .export-icon,.export-shadow:not(.export-hover) .export-label{box-shadow:0 4px 17px #0003,0 0 0 5px #fff3}.export-hover .export-icon,.export-hover .export-label{opacity:0!important;transform:scale(.72)!important;transition:opacity .16s,transform .16s}.export-hover:hover .export-icon,.export-hover:hover .export-label,.export-hover:focus .export-icon,.export-hover:focus .export-label{opacity:1!important;transform:scale(var(--addon-zoom,1))!important}.export-position-floor .export-icon{border-radius:8px 8px 50% 50%}.export-position-wall .export-icon{border-radius:8px}.export-flat .export-icon{perspective:none}.pnlm-hotspot.luxe-export-hotspot:after{display:none!important}');
-  zip.file('README.txt', 'Luxee360 Studio standalone tour\n\nKeep the relative folder structure intact. Host these files as a static website or use a local static HTTP server if the browser blocks file:// resources. This website export is separate from Google Maps publication.\n\nHotspot appearance, labels and actions are included in this export. Pannellum is included under its MIT license; see vendor/PANNELLUM-LICENSE.txt.');
+  zip.file('README.txt', 'Luxee360 Studio standalone tour\n\nKeep the relative folder structure intact. Host these files as a static website or use a local static HTTP server if the browser blocks file:// resources. This website export is separate from Google Maps publication.\n\nEvery scene and hotspot is included. Panorama image files are stored with their original bytes; they are not resized, re-encoded, or image-compressed. Images must already be stitched 2:1 equirectangular 360° panoramas before import.\n\nPannellum is included under its MIT license; see vendor/PANNELLUM-LICENSE.txt.');
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 5 } });
 }
