@@ -103,7 +103,6 @@ export default function App() {
   const activeScene = project.scenes.find((s) => s.id === activeId) || project.scenes[0] || null;
   const selectedHotspot = activeScene?.hotspots.find((h) => h.id === hotspotId) || null;
   const linkedCount = project.scenes.reduce((sum, scene) => sum + scene.hotspots.filter((h) => project.scenes.some((s) => s.id === h.targetSceneId)).length, 0);
-  const readyCount = project.scenes.filter((s) => s.width / s.height > 1.97 && s.width / s.height < 2.03 && s.latitude !== undefined && s.longitude !== undefined && s.latitude >= -90 && s.latitude <= 90 && s.longitude >= -180 && s.longitude <= 180).length;
 
   const notify = useCallback((message: string, kind: MessageType = 'info') => {
     setNotice(message); setNoticeType(kind);

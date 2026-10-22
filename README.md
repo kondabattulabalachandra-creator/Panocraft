@@ -34,13 +34,13 @@ npm run build
 npm run preview
 ```
 
-`vite.config.ts` uses the relative base `./` so assets can work from GitHub Pages repository paths.
+`vite.config.ts` uses the `/Panocraft/` base path for this repository's GitHub Pages project URL.
 
 ## GitHub Pages publishing
 
 1. Create a GitHub repository and push this project's source to the `main` branch.
 2. In **Settings → Pages**, choose **GitHub Actions** as the build/deployment source.
-3. The workflow in `.github/workflows/deploy.yml` installs packages, builds the Vite app and deploys the `dist` folder.
+3. The workflow in `.github/workflows/static.yml` uses Node.js 20, runs `npm ci` and `npm run build`, then deploys the generated `dist` folder.
 4. Read the completed workflow run and **Settings → Pages** for the public URL.
 5. If enabling Google publishing, register that exact website origin in Google Cloud Console.
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import pannellum from 'pannellum';
+import 'pannellum/build/pannellum.js';
 import 'pannellum/build/pannellum.css';
 import type { Hotspot, Scene } from '../lib/studio';
 
@@ -13,7 +13,7 @@ type Props = {
   onSelect: (id: string) => void;
   onNavigate: (id: string) => void;
 };
-type Viewer = ReturnType<typeof pannellum.viewer>;
+type Viewer = ReturnType<Window['pannellum']['viewer']>;
 
 function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boolean, broken: boolean) {
   element.classList.add('luxe-hotspot');
@@ -45,15 +45,15 @@ export default function PanoramaCanvas({ scene, allScenes, mode, selectedHotspot
     if (!element) return;
     setError('');
     try {
-      const viewer = pannellum.viewer(element, {
+      const viewer = window.pannellum.viewer(element, {
         type: 'equirectangular', panorama: scene.imageUrl, autoLoad: true,
         showControls: true, showZoomCtrl: true, showFullscreenCtrl: true,
         compass: false, mouseZoom: true, keyboardZoom: true, draggable: true,
         friction: 0.15, hfov: 96, pitch: 0, yaw: 0, hotSpots: []
       });
       viewerRef.current = viewer;
-      viewer.addEventListener('error', () => setError('This image could not be rendered. Check that it is a readable panorama file.'));
-      viewer.addEventListener('load', () => setError(''));
+      viewer.on('error', () => setError('This image could not be rendered. Check that it is a readable panorama file.'));
+      viewer.on('load', () => setError(''));
       return () => {
         hotspotsRef.current = [];
         try { viewer.destroy(); } catch { /* The viewer may already be disposed. */ }

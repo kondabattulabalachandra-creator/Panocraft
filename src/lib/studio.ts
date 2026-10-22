@@ -319,6 +319,9 @@ export async function prepareGoogleJpeg(scene: Scene): Promise<Blob> {
     const jpeg = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.94));
     if (!jpeg) throw new Error(`Could not create an upload-ready JPEG for ${scene.name}.`);
     const bytes = new Uint8Array(await jpeg.arrayBuffer());
-    return new Blob([injectXmp(bytes, createXmp(width, height, scene.heading || 0))], { type: 'image/jpeg' });
+    const tagged = injectXmp(bytes, createXmp(width, height, scene.heading || 0));
+    const blobBytes = new ArrayBuffer(tagged.byteLength);
+    new Uint8Array(blobBytes).set(tagged);
+    return new Blob([blobBytes], { type: 'image/jpeg' });
   } finally { bitmap.close(); }
 }
