@@ -4,15 +4,15 @@
 
 Open the editor in a modern browser. Use **Try sample tour** to explore a three-scene walkthrough without supplying photos. To begin with your own images, choose **Import panoramas** or **Add photos** and select JPG/JPEG, PNG, or WebP files. The app reads image dimensions locally. A ratio near 2:1 is a helpful check for an equirectangular panorama, but it does not prove that the source covers a complete sphere.
 
-Scenes appear in the left panel and in the bottom thumbnail strip. Select a thumbnail to switch scenes; use the left-panel controls to reorder scenes. Collapse the scene rail when you need more room for the panorama. The right inspector shows settings for the selected scene or hotspot. Removing a scene removes links pointing to that scene; it does not delete the original device file.
+Scenes appear in the collapsible left panel. Select a scene card to switch scenes, drag cards to reorder them, or drag a destination card onto the panorama to connect directly. Use the single **Import photos** control in this panel to add panorama files. The right inspector shows settings for the selected scene or hotspot. Removing a scene removes links pointing to that scene; it does not delete the original device file.
 
 ## Editor layout
 
-The compact top bar keeps the project name, undo/redo, local save status, **Save**, **Export**, and **Preview tour** close at hand. The bottom strip supports rapid scene switching and dragging a destination thumbnail directly onto the panorama. **Export** creates the standalone tour ZIP; project JSON backup and restore remain under **Project**. The thumbnail bar, panorama editor, and right-side editing panel follow familiar tour-editor conventions while keeping Luxee360's own visual design. See [Kuula's virtual-tour guide](https://www.kuula.co/help/virtual-tours) for its documented editor layout.
+The compact top bar keeps the Luxe Growth logo, **Luxee360 Studio** name, project name, undo/redo, local save status, **Save**, **Export**, and **Preview tour** close at hand. The editor uses the parent site's black, ivory, and muted-gold palette, with Manrope for interface text and Playfair Display for major headings. The collapsible left rail provides the single photo-import control, scene switching, and direct drag-to-connect; the large panorama remains central, with contextual editing in the right inspector. **Export** creates the standalone tour ZIP; project JSON backup and restore remain under **Project**. See [Luxe Growth](https://www.luxeegrowth.in/) for the brand reference and [Kuula's virtual-tour guide](https://www.kuula.co/help/virtual-tours) for its editor layout.
 
 ## Create and tune navigation hotspots
 
-Drag a scene thumbnail from the sidebar or bottom strip onto the desired point in the panorama to create a connection directly. Luxee360 highlights the viewer as a drop target and places the marker at that exact panorama position. A scene cannot connect to itself. If drag-and-drop is unavailable, choose **Add connection** (or press `H`), click the desired point, then choose the destination in the inspector. New connections do not choose a destination automatically. This thumbnail-to-panorama workflow follows the interaction demonstrated in [Kuula’s guide](https://kuula.co/help/connections).
+Drag a scene card from the left sidebar onto the desired point in the panorama to create a connection directly. Luxee360 highlights the viewer as a drop target and places the marker at that exact panorama position. A scene cannot connect to itself. If drag-and-drop is unavailable, choose **Add connection** (or press `H`), click the desired point, then choose the destination in the inspector. New connections do not choose a destination automatically. This thumbnail-to-panorama workflow follows the interaction demonstrated in [Kuula’s guide](https://kuula.co/help/connections).
 
 New navigation markers use a tilted floor-arrow style by default; choose 2D or wall placement when that fits better. A hotspot stores spherical pitch and yaw values, so its position remains attached to the panorama as you look around. In the inspector:
 
@@ -32,7 +32,7 @@ A navigation marker with no valid destination is flagged in the inspector and do
 
 The editor supports `Ctrl+Z` / `⌘+Z` for undo, `Ctrl+Shift+Z` / `⌘+Shift+Z` or `Ctrl+Y` for redo, `V` for select mode, `H` for hotspot placement, and `Esc` to exit preview, reset selection mode, close the project menu, or dismiss an open mobile panel. Shortcuts are ignored while typing in text fields and selects.
 
-At narrow widths, the scene and inspector panels are hidden until opened from the bottom navigation. The panorama workspace and horizontally scrollable scene strip remain available. Use the **Scenes**, **Editor**, **Properties**, and **Google** bottom actions to move between mobile panels and work areas.
+At narrow widths, the scene and inspector panels are hidden until opened from the bottom navigation. Use **Scenes** to switch between scene cards; the panorama workspace stays free of a separate thumbnail strip. Use the **Scenes**, **Editor**, **Properties**, and **Google** bottom actions to move between mobile panels and work areas.
 
 Use the sun/moon icon to switch between dark and light mode. Dark mode is the default; the selected theme is saved in the current browser profile.
 

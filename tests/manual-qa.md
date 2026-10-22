@@ -35,8 +35,8 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 
 ## Thumbnail-to-panorama connections
 
-1. Drag a non-active scene thumbnail onto several distinct points in the panorama. Confirm the selected source scene receives a navigation hotspot for exactly the dragged destination and that yaw/pitch match the drop location.
-2. Drag the active scene thumbnail onto its own panorama. Confirm a clear rejection and no self-link is created.
+1. Drag a non-active scene card from the left rail onto several distinct points in the panorama. Confirm the selected source scene receives a navigation hotspot for exactly the dragged destination and that yaw/pitch match the drop location.
+2. Drag the active scene card from the left rail onto its own panorama. Confirm a clear rejection and no self-link is created.
 3. Drag a thumbnail onto another scene card and confirm existing scene-reorder behavior still works.
 4. Choose **Add connection**, click a point in the panorama, and verify the new connection has no automatic destination. Select a destination in the inspector and confirm it becomes a valid navigation connection. Check this flow at narrow/mobile widths where drag-and-drop may not be available.
 
@@ -51,11 +51,11 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 
 ## Professional workspace redesign
 
-1. On desktop, confirm the compact top bar shows project name, undo/redo, local save status, Save, Export, and Preview; verify the Export button downloads the standalone ZIP.
-2. Collapse and reopen the scene sidebar. Confirm the viewer expands into the freed space and the thumbnail strip remains available.
-3. Select scenes from the bottom strip, then drag a non-active thumbnail onto the panorama. Confirm exact-position placement and correct destination; verify the strip scrolls horizontally without page overflow on narrow widths.
+1. On desktop, confirm the top-left Luxe Growth logo and Luxee360 Studio name appear alongside project name, undo/redo, local save status, Save, Export, and Preview; verify the Export button downloads the standalone ZIP.
+2. Collapse and reopen the scene sidebar. Confirm the viewer expands into the freed space, no separate bottom strip appears, and the left rail has only one **Import photos** control before and after scenes are added.
+3. Confirm there is no bottom horizontal photo strip. Select scenes from the left rail, then drag a non-active scene card onto the panorama. Confirm exact-position placement and correct destination; on narrow widths open **Scenes** from bottom navigation to switch scenes.
 4. Select a hotspot and use **Duplicate hotspot**. Confirm the copy is selected, preserves destination/action/appearance, and receives a visible offset. Confirm an empty source label produces a readable “Hotspot copy” label.
-5. Switch between dark and light themes and verify the strip, toolbar, and sidebar controls retain legible contrast.
+5. Switch between dark and light themes and verify the brand palette, Manrope interface text, Playfair Display headings, logo, toolbar, and sidebar controls remain legible.
 6. Select a hotspot and trigger repeated appearance/selection redraws; verify every marker retains exactly one icon and at most one label, including with an uploaded custom image.
 
 ## Recorded run: 2026-10-22 — mobile workspace grid regression
