@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, Bold, ImagePlus, Italic, RotateCcw,
-  RotateCw, Sparkles, Type, X
+  AlignCenter, AlignLeft, AlignRight, ArrowRight, ArrowUp, Bold, Camera, ImagePlus,
+  Info, Italic, MapPin, RotateCcw, RotateCw, Star, Type, X
 } from 'lucide-react';
 import type { Hotspot } from '../lib/studio';
 
@@ -17,6 +17,7 @@ export default function HotspotAddonPanel({ hotspot, onChange }: Props) {
   const labelColor = color(hotspot.labelColor, '#29362e');
   const labelBackground = color(hotspot.labelBackground, '#ffffff');
   const action = hotspot.action || (hotspot.targetSceneId ? 'navigate' : 'none');
+  const PreviewIcon = action === 'navigate' ? ArrowUp : { arrow: ArrowRight, info: Info, pin: MapPin, star: Star, camera: Camera }[hotspot.icon || 'arrow'];
   const setPlacement = (mode: NonNullable<Hotspot['placementMode']>) => {
     const current = hotspot.placementMode || '2d';
     const patch: Partial<Hotspot> = { placementMode: mode };
@@ -55,21 +56,21 @@ export default function HotspotAddonPanel({ hotspot, onChange }: Props) {
       <div className="addon-section-heading"><h3>Icon</h3><span className="addon-live-dot">LIVE</span></div>
       <div className="addon-icon-row">
         <div className="addon-icon-preview" aria-label="Hotspot icon preview">
-          {hotspot.iconDataUrl ? <img src={hotspot.iconDataUrl} alt="Custom hotspot icon"/> : <span className={'addon-preview-glyph addon-glyph-' + (hotspot.icon || 'arrow')} style={{ color: color(hotspot.tint, '#e0c45d') }}>{hotspot.icon === 'info' ? 'i' : hotspot.icon === 'pin' ? '●' : hotspot.icon === 'star' ? '★' : hotspot.icon === 'camera' ? '▣' : '⌁'}</span>}
+          {action !== 'navigate' && hotspot.iconDataUrl ? <img src={hotspot.iconDataUrl} alt="Custom hotspot icon"/> : <PreviewIcon className={'addon-preview-glyph addon-glyph-' + (action === 'navigate' ? 'arrow' : hotspot.icon || 'arrow')} size={42} strokeWidth={1.7} style={{ color: action === 'navigate' ? '#344b3d' : '#718078' }}/>}
         </div>
         <div className="addon-icon-actions">
-          <label className="addon-label" htmlFor="hotspot-icon">Icon style</label>
-          <select id="hotspot-icon" className="select-input" value={hotspot.icon || 'arrow'} onChange={(event) => onChange({ icon: event.target.value as Hotspot['icon'], iconDataUrl: '' })}>
-            <option value="arrow">Arrow</option><option value="info">Information</option><option value="pin">Pin</option><option value="star">Star</option><option value="camera">Camera</option>
-          </select>
-          <button className="addon-link-button" type="button" onClick={() => uploadRef.current?.click()}><ImagePlus size={14}/> Change image</button>
-          <button className="addon-link-button" type="button" onClick={() => onChange({ tint: '#e0c45d' })}><Sparkles size={14}/> Set tint</button>
-          {hotspot.iconDataUrl && <button className="addon-link-button addon-remove-icon" type="button" onClick={() => onChange({ iconDataUrl: '' })}><X size={14}/> Remove custom image</button>}
+          {action === 'navigate' ? <span className="addon-label">Navigation arrow</span> : <>
+            <label className="addon-label" htmlFor="hotspot-icon">Icon style</label>
+            <select id="hotspot-icon" className="select-input" value={hotspot.icon || 'arrow'} onChange={(event) => onChange({ icon: event.target.value as Hotspot['icon'], iconDataUrl: '' })}>
+              <option value="arrow">Arrow</option><option value="info">Information</option><option value="pin">Pin</option><option value="star">Star</option><option value="camera">Camera</option>
+            </select>
+            <button className="addon-link-button" type="button" onClick={() => uploadRef.current?.click()}><ImagePlus size={14}/> Change image</button>
+            {hotspot.iconDataUrl && <button className="addon-link-button addon-remove-icon" type="button" onClick={() => onChange({ iconDataUrl: '' })}><X size={14}/> Remove custom image</button>}
+          </>}
         </div>
-        <input ref={uploadRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => chooseIcon(event.target.files?.[0])}/>
+        {action !== 'navigate' && <input ref={uploadRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => chooseIcon(event.target.files?.[0])}/>}
       </div>
       {uploadError && <p className="addon-error" role="alert">{uploadError}</p>}
-      <div className="addon-color-row"><label htmlFor="hotspot-tint">Tint</label><input id="hotspot-tint" type="color" value={color(hotspot.tint, '#e0c45d')} onChange={(event) => onChange({ tint: event.target.value })}/><span>{color(hotspot.tint, '#e0c45d').toUpperCase()}</span></div>
     </section>
 
     <section className="addon-section">

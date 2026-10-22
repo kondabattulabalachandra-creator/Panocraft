@@ -21,6 +21,8 @@ const signedAngle = (degrees: number) => ((degrees + 180) % 360 + 360) % 360 - 1
 function exportHotspot(hotspot: Hotspot, source: Project['scenes'][number], scenes: Project['scenes']) {
   const destination = scenes.find((scene) => scene.id === hotspot.targetSceneId);
   const returnHotspot = destination?.hotspots.find((item) => item.targetSceneId === source.id);
+  const action = hotspot.action || (hotspot.targetSceneId ? 'navigate' : 'none');
+  const navigation = action === 'navigate' && !!destination;
   const arrivalYaw = hotspot.autoFaceBack === false ? (hotspot.arrivalYaw ?? 0) : (returnHotspot?.yaw ?? signedAngle(hotspot.yaw + 180));
   const arrivalPitch = hotspot.autoFaceBack === false ? (hotspot.arrivalPitch ?? 0) : (returnHotspot?.pitch ?? 0);
   return {
@@ -29,12 +31,12 @@ function exportHotspot(hotspot: Hotspot, source: Project['scenes'][number], scen
     yaw: hotspot.yaw,
     label: hotspot.label,
     targetSceneId: hotspot.targetSceneId,
-    action: hotspot.action || (hotspot.targetSceneId ? 'navigate' : 'none'),
+    action,
     actionUrl: (hotspot.actionUrl || '').slice(0, 2048),
     actionInfo: (hotspot.actionInfo || '').slice(0, 1000),
     arrivalYaw, arrivalPitch,
     style: {
-      icon: hotspot.icon || 'arrow', iconDataUrl: safeDataImage(hotspot.iconDataUrl), tint: safeColor(hotspot.tint, '#e0c45d'),
+      icon: navigation ? 'arrow' : hotspot.icon || 'arrow', iconDataUrl: navigation ? '' : safeDataImage(hotspot.iconDataUrl), tint: navigation ? '#ffffff' : safeColor(hotspot.tint, '#e0c45d'),
       width: Math.max(16, Math.min(120, hotspot.width ?? 44)), height: Math.max(16, Math.min(120, hotspot.height ?? 44)),
       opacity: Math.max(5, Math.min(100, hotspot.opacity ?? 100)), rotation: Math.max(-180, Math.min(180, hotspot.rotation ?? 0)),
       rotationX: Math.max(-180, Math.min(180, hotspot.rotationX ?? (hotspot.placementMode === 'floor' ? 65 : 0))), rotationY: Math.max(-180, Math.min(180, hotspot.rotationY ?? 0)),
@@ -159,7 +161,7 @@ viewer=pannellum.viewer('panorama',tour);viewer.on('zoomchange',function(){const
   zip.file('index.html', html);
   zip.file('tour.json', JSON.stringify(tour, null, 2));
   zip.file('vendor/pannellum.js', pannellumJs);
-  zip.file('vendor/pannellum.css', pannellumCss);
+  zip.file('vendor/pannellum.css', pannellumCss + '\n.pnlm-hotspot.luxe-export-hotspot .export-icon:has(svg path[d^="M5 12h14"]){background:rgba(255,255,255,.12)!important;border:0!important;border-radius:50%;box-shadow:none!important;color:#fff!important;backdrop-filter:blur(12px) saturate(1.25)}.pnlm-hotspot.luxe-export-hotspot .export-icon svg:has(path[d^="M5 12h14"]){transform:rotate(-90deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.46))}');
   zip.file('vendor/PANNELLUM-LICENSE.txt', pannellumLicense);
   zip.file('vendor/tour.css', 'html,body{margin:0;height:100%;font-family:system-ui,sans-serif;color:#e9e9e6;background:#111416}header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#181c1f;border-bottom:1px solid #2a3033}header strong{font-size:14px}header span,footer{font-size:11px;color:#a3abad}footer{height:32px;display:flex;align-items:center;justify-content:center}#panorama{height:calc(100% - 84px);width:100%}.pnlm-hotspot.luxe-export-hotspot{width:auto!important;height:auto!important;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0!important;border:0!important;background:transparent!important;overflow:visible!important;cursor:pointer}.export-icon{box-sizing:border-box;display:grid;place-items:center;border:1px solid #ffffffa8;border-radius:50%;background:#fdfefa;color:#284c3f;box-shadow:0 4px 17px #0003,0 0 0 5px #fff3;transition:transform .15s;backface-visibility:hidden}.export-icon svg{width:58%;height:58%}.export-icon img{display:block;width:82%;height:82%;object-fit:contain}.export-custom-icon{display:block;width:74%;height:74%;mask-size:contain;-webkit-mask-size:contain;mask-position:center;-webkit-mask-position:center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat}.pnlm-hotspot.luxe-export-hotspot:not(.export-shadow) .export-icon,.pnlm-hotspot.luxe-export-hotspot:not(.export-shadow) .export-label{box-shadow:none}.export-label{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;border-radius:6px;box-shadow:0 2px 12px #0002}.export-shadow:not(.export-hover) .export-icon,.export-shadow:not(.export-hover) .export-label{box-shadow:0 4px 17px #0003,0 0 0 5px #fff3}.export-hover .export-icon,.export-hover .export-label{opacity:0!important;transform:scale(.72)!important;transition:opacity .16s,transform .16s}.export-hover:hover .export-icon,.export-hover:hover .export-label,.export-hover:focus .export-icon,.export-hover:focus .export-label{opacity:1!important;transform:scale(var(--addon-zoom,1))!important}.export-position-floor .export-icon{border-radius:8px 8px 50% 50%}.export-position-wall .export-icon{border-radius:8px}.export-flat .export-icon{perspective:none}.pnlm-hotspot.luxe-export-hotspot:after{display:none!important}');
   zip.file('README.txt', 'Luxee360 Studio standalone tour\n\nKeep the relative folder structure intact. Host these files as a static website or use a local static HTTP server if the browser blocks file:// resources. This website export is separate from Google Maps publication.\n\nEvery scene and hotspot is included. Panorama image files are stored with their original bytes; they are not resized, re-encoded, or image-compressed. Images must already be stitched 2:1 equirectangular 360° panoramas before import.\n\nPannellum is included under its MIT license; see vendor/PANNELLUM-LICENSE.txt.');
