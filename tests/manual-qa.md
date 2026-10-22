@@ -52,7 +52,7 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 ## Professional workspace redesign
 
 1. On desktop, confirm the top-left Luxe Growth logo and Luxee360 Studio name appear alongside project name, undo/redo, local save status, Save, Export, and Preview; verify the Export button downloads the standalone ZIP.
-2. Collapse and reopen the scene sidebar. Confirm the viewer expands into the freed space, no separate bottom strip appears, and the left rail has only one **Import photos** control before and after scenes are added.
+2. Collapse and reopen the scene sidebar. Confirm the viewer expands into the freed space, no bottom photo strip or Tiny Planet control appears, and the left rail has only one **Import photos** control before and after scenes are added.
 3. Confirm there is no bottom horizontal photo strip. Select scenes from the left rail, then drag a non-active scene card onto the panorama. Confirm exact-position placement and correct destination; on narrow widths open **Scenes** from bottom navigation to switch scenes.
 4. Select a hotspot and use **Duplicate hotspot**. Confirm the copy is selected, preserves destination/action/appearance, and receives a visible offset. Confirm an empty source label produces a readable “Hotspot copy” label.
 5. Switch between dark and light themes and verify the brand palette, Manrope interface text, Playfair Display headings, logo, toolbar, and sidebar controls remain legible.

@@ -26,7 +26,7 @@ New navigation markers use a tilted floor-arrow style by default; choose 2D or w
 - Set **Action** to no action, navigate to a scene, open an HTTP(S) link, or show an information message. Link actions accept only web addresses.
 - **Duplicate hotspot** copies the selected marker's destination, appearance, and action, then offsets and selects the new copy. Delete the selected marker when it is no longer needed. Kuula also documents duplicate/copy editing tools in its [hotspot guide](https://kuula.co/help/hotspots).
 
-A navigation marker with no valid destination is flagged in the inspector and does not navigate in preview. Choose **Preview tour** to try the configured action and confirm that each linked room opens in its configured arrival direction. Use **Tiny planet** in the canvas toolbar to switch to a stereographic tiny-planet view; toggle it again to return to the normal panorama view. Exit preview to edit again.
+A navigation marker with no valid destination is flagged in the inspector and does not navigate in preview. Choose **Preview tour** to try the configured action and confirm that each linked room opens in its configured arrival direction. Exit preview to edit again.
 
 ## Keyboard and responsive controls
 

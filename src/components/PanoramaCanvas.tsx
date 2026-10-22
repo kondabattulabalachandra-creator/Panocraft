@@ -13,7 +13,6 @@ type Props = {
   mode: 'select' | 'add' | 'reposition';
   selectedHotspotId: string | null;
   preview: boolean;
-  tinyPlanet: boolean;
   onPlace: (pitch: number, yaw: number) => void;
   onSceneDrop: (sceneId: string, pitch: number, yaw: number) => void;
   onSelect: (id: string) => void;
@@ -82,9 +81,8 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
   element.setAttribute('aria-label', hotspot.label || 'Tour hotspot');
 }
 
-export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPitch, mode, selectedHotspotId, preview, tinyPlanet, onPlace, onSceneDrop, onSelect, onNavigate }: Props) {
+export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPitch, mode, selectedHotspotId, preview, onPlace, onSceneDrop, onSelect, onNavigate }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const tinyPlanetCanvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const hotspotsRef = useRef<string[]>([]);
   const [connectionDropActive, setConnectionDropActive] = useState(false);
@@ -161,49 +159,6 @@ export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPi
     }
   }, [scene.id, scene.imageUrl, initialYaw, initialPitch]);
 
-  useEffect(() => {
-    if (!tinyPlanet) return;
-    let cancelled = false;
-    const drawLittlePlanet = async () => {
-      const response = await fetch(scene.imageUrl);
-      if (!response.ok) throw new Error('Panorama image could not be opened.');
-      const image = await createImageBitmap(await response.blob());
-      const source = document.createElement('canvas');
-      source.width = 2048; source.height = 1024;
-      const sourceContext = source.getContext('2d', { willReadFrequently: true });
-      if (!sourceContext) { image.close(); throw new Error('Canvas is unavailable.'); }
-      sourceContext.drawImage(image, 0, 0, source.width, source.height);
-      image.close();
-      const sourcePixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
-      const canvas = tinyPlanetCanvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context || cancelled) return;
-      const size = 720; canvas.width = size; canvas.height = size;
-      const output = context.createImageData(size, size);
-      const center = (size - 1) / 2; const radius = size * 0.47;
-      const maxAngle = 116 * Math.PI / 180; const tangent = Math.tan(maxAngle / 2);
-      for (let y = 0; y < size; y++) {
-        const ny = (y - center) / radius;
-        for (let x = 0; x < size; x++) {
-          const nx = (x - center) / radius;
-          const radial = Math.hypot(nx, ny);
-          if (radial > 1) continue;
-          const angle = 2 * Math.atan(radial * tangent);
-          const latitude = -Math.PI / 2 + angle;
-          const longitude = Math.atan2(ny, nx);
-          const sourceX = Math.floor(((longitude / (2 * Math.PI) + 1) % 1) * source.width) % source.width;
-          const sourceY = Math.max(0, Math.min(source.height - 1, Math.floor((0.5 - latitude / Math.PI) * source.height)));
-          const from = (sourceY * source.width + sourceX) * 4;
-          const to = (y * size + x) * 4;
-          output.data[to] = sourcePixels[from]; output.data[to + 1] = sourcePixels[from + 1];
-          output.data[to + 2] = sourcePixels[from + 2]; output.data[to + 3] = 255;
-        }
-      }
-      if (!cancelled) context.putImageData(output, 0, 0);
-    };
-    drawLittlePlanet().catch(() => { if (!cancelled) setError('The tiny-planet projection could not be rendered for this image.'); });
-    return () => { cancelled = true; };
-  }, [tinyPlanet, scene.imageUrl]);
 
   useEffect(() => { syncHotspotsRef.current(); }, [scene.id, scene.hotspots, allScenes, selectedHotspotId, preview]);
 
@@ -247,12 +202,10 @@ export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPi
   };
 
   return (
-    <div ref={containerRef} className={'panorama-container ' + (mode !== 'select' ? 'crosshair-mode' : '') + (tinyPlanet ? ' panorama-tiny-planet' : '') + (connectionDropActive ? ' connection-drop-active' : '')} onClick={onClick} onDragOver={onConnectionDragOver} onDragLeave={onConnectionDragLeave} onDrop={onConnectionDrop} role="application" aria-label={tinyPlanet ? 'Interactive tiny planet panorama viewer' : 'Interactive 360 degree panorama viewer'}>
+    <div ref={containerRef} className={'panorama-container ' + (mode !== 'select' ? 'crosshair-mode' : '') + (connectionDropActive ? ' connection-drop-active' : '')} onClick={onClick} onDragOver={onConnectionDragOver} onDragLeave={onConnectionDragLeave} onDrop={onConnectionDrop} role="application" aria-label="Interactive 360 degree panorama viewer">
       {error && <div className="viewer-error"><span>!</span>{error}</div>}
       {mode !== 'select' && <div className="viewer-hint">{mode === 'add' ? 'Click a point, then choose a destination' : 'Click the new position for the selected hotspot'}</div>}
       {connectionDropActive && <div className="connection-drop-overlay" aria-hidden="true"><div className="connection-drop-card"><span className="connection-drop-icon">+</span><strong>Drop to add connection</strong><span>Hotspot will be placed here</span></div></div>}
-      {tinyPlanet && <canvas ref={tinyPlanetCanvasRef} className="tiny-planet-canvas" role="img" aria-label="Tiny planet panorama projection"/>}
-      {tinyPlanet && <div className="tiny-planet-badge"><span/> Tiny planet view</div>}
     </div>
   );
 }
