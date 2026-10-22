@@ -190,6 +190,21 @@ export async function importProjectJson(file: File): Promise<Project> {
     throw new Error('This is not a supported Luxe360 Studio project backup.');
   }
   const p = parsed.project;
+  const sceneIds = new Set<string>();
+  for (const raw of p.scenes) {
+    if (!raw?.id || typeof raw.name !== 'string' || typeof raw.imageDataUrl !== 'string') throw new Error('A scene in this backup is missing a required field.');
+    const sceneId = String(raw.id);
+    if (sceneIds.has(sceneId)) throw new Error('This backup contains duplicate scene IDs.');
+    sceneIds.add(sceneId);
+    const hotspotIds = new Set<string>();
+    for (const hotspot of Array.isArray(raw.hotspots) ? raw.hotspots : []) {
+      if (!hotspot || typeof hotspot !== 'object') throw new Error('A hotspot in this backup is invalid.');
+      if (!hotspot.id) continue;
+      const hotspotId = String(hotspot.id);
+      if (hotspotIds.has(hotspotId)) throw new Error('This backup contains duplicate hotspot IDs in a scene.');
+      hotspotIds.add(hotspotId);
+    }
+  }
   const scenes: Scene[] = [];
   for (const raw of p.scenes) {
     if (!raw.id || typeof raw.name !== 'string' || typeof raw.imageDataUrl !== 'string') throw new Error('A scene in this backup is missing a required field.');

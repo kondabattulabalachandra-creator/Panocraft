@@ -41,7 +41,9 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
   arrow.style.color = hotspot.tint || '#e0c45d';
   arrow.style.borderColor = hotspot.tint || '#e0c45d';
   const floorTilt = hotspot.rotationX ?? (hotspot.placementMode === 'floor' ? 65 : 0);
-  arrow.style.transform = `perspective(500px) rotateX(${floorTilt}deg) rotateY(${hotspot.rotationY || 0}deg) rotateZ(${hotspot.rotationZ || 0}deg) rotate(${hotspot.rotation || 0}deg) scale(var(--addon-zoom, 1))`;
+  arrow.style.transform = hotspot.force2D === true
+    ? `rotate(${hotspot.rotation || 0}deg) scale(var(--addon-zoom, 1))`
+    : `perspective(500px) rotateX(${floorTilt}deg) rotateY(${hotspot.rotationY || 0}deg) rotateZ(${hotspot.rotationZ || 0}deg) rotate(${hotspot.rotation || 0}deg) scale(var(--addon-zoom, 1))`;
   if (hotspot.iconDataUrl?.startsWith('data:image/')) {
     const image = document.createElement('span');
     image.className = 'luxe-hotspot-custom-icon';
