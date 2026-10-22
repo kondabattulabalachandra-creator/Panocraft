@@ -132,10 +132,13 @@ export async function exportTourZip(project: Project): Promise<Blob> {
   const files: Record<string, string> = {};
   const used = new Set<string>();
   for (const [index, scene] of project.scenes.entries()) {
-    let slug = scene.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `scene-${index + 1}`;
-    if (used.has(slug)) slug += `-${index + 1}`;
+    const baseSlug = scene.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `scene-${index + 1}`;
+    let slug = baseSlug;
+    let suffix = index + 1;
+    while (used.has(slug)) slug = `${baseSlug}-${suffix++}`;
     used.add(slug);
-    const ext = scene.mimeType === 'image/png' ? 'png' : scene.mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const mimeType = scene.mimeType.toLowerCase();
+    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
     files[scene.id] = `assets/${slug}.${ext}`;
     zip.file(files[scene.id], scene.blob, { compression: 'STORE' });
   }
