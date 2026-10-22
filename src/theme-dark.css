@@ -271,3 +271,51 @@
 .theme-dark .canvas-breadcrumb,
 .theme-dark .statusbar-right { color: var(--ivory-muted); }
 .theme-dark :focus-visible { outline-color: var(--gold-light); }
+
+
+/* Keep the full editor toolbar usable on compact desktop widths. */
+@media (min-width: 901px) and (max-width: 1160px) {
+  .topbar {
+    height: auto;
+    min-height: 62px;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 6px 10px;
+  }
+
+  .brand-lockup {
+    min-width: 150px;
+    gap: 7px;
+  }
+
+  .theme-dark .brand-lockup { min-width: 150px; }
+
+  .brand-logo {
+    width: 58px;
+    height: 33px;
+  }
+
+  .brand-name { font-size: 13px; }
+  .brand-subtitle { font-size: 7px; letter-spacing: 0.9px; }
+  .project-title-wrap { min-width: 100px; max-width: 150px; }
+  .project-name-input { max-width: 140px; font-size: 12px; }
+  .topbar-spacer { min-width: 0; flex: 1 1 0; }
+  .topbar-actions { gap: 4px; flex: 0 0 auto; margin-left: auto; }
+  .topbar-actions .icon-button { width: 27px; height: 30px; }
+  .topbar-actions .action-divider { margin: 0 1px; }
+  .topbar-actions .tab-button { gap: 5px; padding: 0 7px; font-size: 10px; }
+  .topbar-actions > .button { gap: 5px; padding: 0 8px; font-size: 10px; }
+}
+
+@media (min-width: 901px) and (max-width: 960px) {
+  .topbar-divider,
+  .topbar-spacer { display: none; }
+
+  .topbar-actions {
+    flex-basis: 100%;
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+}
