@@ -56,11 +56,10 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 3. Select scenes from the bottom strip, then drag a non-active thumbnail onto the panorama. Confirm exact-position placement and correct destination; verify the strip scrolls horizontally without page overflow on narrow widths.
 4. Select a hotspot and use **Duplicate hotspot**. Confirm the copy is selected, preserves destination/action/appearance, and receives a visible offset. Confirm an empty source label produces a readable “Hotspot copy” label.
 5. Switch between dark and light themes and verify the strip, toolbar, and sidebar controls retain legible contrast.
+6. Select a hotspot and trigger repeated appearance/selection redraws; verify every marker retains exactly one icon and at most one label, including with an uploaded custom image.
 
 ## Recorded run: 2026-10-22 — mobile workspace grid regression
 
 **Build and base path.** `npm run typecheck`, `npm run build`, and `git diff --check` passed. The production preview served `/Panocraft/` with HTTP 200 and rendered the sample tour.
 
 **Responsive check.** At 360px and 768px, `.workspace` and `.scene-strip` measured the full viewport width and document/body widths equaled the viewport, with no horizontal page overflow. The bottom navigation opened Scenes, switched to Details, and returned to Editor with both side panels closed. At 1024px the desktop three-column workspace and sidebars remained present. The production build was tested in same-origin browser frames.
-
-6. Select a hotspot and trigger repeated appearance/selection redraws; verify every marker retains exactly one icon and at most one label, including with an uploaded custom image.
