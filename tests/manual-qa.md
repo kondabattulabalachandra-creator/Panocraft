@@ -79,3 +79,11 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 1. In edit mode, click the arrow portion of a navigation hotspot and confirm the assigned destination scene opens without entering preview.
 2. Click the hotspot label or its Scene connections row and confirm the current scene stays open while the hotspot inspector selects that marker.
 3. Enter Preview tour, click the same navigation arrow, and confirm it opens the same assigned destination with the configured arrival direction.
+
+
+## Portable tour export visibility and routing
+
+1. Set a navigation hotspot tint to white or another pale color. Confirm the icon remains visibly contrasted in the editor and in the exported ZIP.
+2. Export the tour ZIP and verify it includes every original panorama, hotspot arrow, destination scene ID, arrival direction, `index.html`, `tour.json`, and local Pannellum JS/CSS assets.
+3. Extract the ZIP and serve it from an unrelated static HTTP origin. Confirm hotspot arrows render and clicking one loads exactly its assigned panorama; check that viewer startup does not require a Luxee360/API/CDN request.
+4. Confirm the project backup remains a separate JSON export, while the toolbar’s “Export tour” action produces the portable ZIP.

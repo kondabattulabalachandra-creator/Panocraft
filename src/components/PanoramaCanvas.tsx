@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import 'pannellum/build/pannellum.js';
 import 'pannellum/build/pannellum.css';
-import type { Hotspot, Scene } from '../lib/studio';
+import { hotspotIconColor, type Hotspot, type Scene } from '../lib/studio';
 const signedAngle = (degrees: number) => ((degrees + 180) % 360 + 360) % 360 - 180;
 const CONNECTION_DRAG_TYPE = 'text/luxe360-connection';
 
@@ -42,7 +42,7 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
   arrow.style.width = width + 'px';
   arrow.style.height = height + 'px';
   arrow.style.opacity = String(Math.max(5, Math.min(100, hotspot.opacity ?? 100)) / 100);
-  arrow.style.color = navigation ? '#fff' : hotspot.tint || '#e0c45d';
+  arrow.style.color = navigation ? '#fff' : hotspotIconColor(hotspot.tint);
   arrow.style.borderColor = navigation ? 'rgba(255,255,255,.9)' : hotspot.tint || '#e0c45d';
   arrow.title = hotspot.targetSceneId ? 'Open assigned scene' : 'Select hotspot';
   const floorTilt = hotspot.rotationX ?? (hotspot.placementMode === 'floor' ? 65 : 0);
@@ -52,7 +52,7 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
   if (!navigation && hotspot.iconDataUrl?.startsWith('data:image/')) {
     const image = document.createElement('span');
     image.className = 'luxe-hotspot-custom-icon';
-    image.style.backgroundColor = hotspot.tint || '#e0c45d';
+    image.style.backgroundColor = hotspotIconColor(hotspot.tint);
     image.style.maskImage = `url("${hotspot.iconDataUrl}")`;
     image.style.webkitMaskImage = `url("${hotspot.iconDataUrl}")`;
     arrow.appendChild(image);
