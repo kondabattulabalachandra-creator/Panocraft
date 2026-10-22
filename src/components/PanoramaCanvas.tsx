@@ -42,6 +42,7 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
   arrow.style.opacity = String(Math.max(5, Math.min(100, hotspot.opacity ?? 100)) / 100);
   arrow.style.color = hotspot.tint || '#e0c45d';
   arrow.style.borderColor = hotspot.tint || '#e0c45d';
+  arrow.title = hotspot.targetSceneId ? 'Open assigned scene' : 'Select hotspot';
   const floorTilt = hotspot.rotationX ?? (hotspot.placementMode === 'floor' ? 65 : 0);
   arrow.style.transform = hotspot.force2D === true
     ? `rotate(${hotspot.rotation || 0}deg) scale(var(--addon-zoom, 1))`
@@ -69,6 +70,7 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
     const label = document.createElement('span');
     label.className = 'luxe-hotspot-label';
     label.textContent = hotspot.label;
+    label.title = 'Select hotspot to edit';
     label.style.color = hotspot.labelColor || '#29362e';
     label.style.backgroundColor = hotspot.labelBackground || '#ffffff';
     label.style.fontSize = Math.max(6, Math.min(36, hotspot.labelFontSize ?? 11)) + 'px';
@@ -103,10 +105,14 @@ export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPi
         viewer.addHotSpot({
           id, pitch: hotspot.pitch, yaw: hotspot.yaw, type: 'info', cssClass: 'luxe360-hotspot',
           createTooltipFunc: (element: HTMLElement) => decorateHotspot(element, hotspot, latest.selectedHotspotId === hotspot.id && !latest.preview, !target),
-          clickHandlerFunc: () => {
+          clickHandlerFunc: (event: Event) => {
             const current = callbackRef.current;
-            if (!current.preview) { current.onSelect(hotspot.id); return; }
             const action = hotspot.action || (hotspot.targetSceneId ? 'navigate' : 'none');
+            const clickedArrow = event.target instanceof Element && event.target.closest('.luxe-hotspot-arrow') !== null;
+            if (!current.preview && !(clickedArrow && action === 'navigate' && target && hotspot.targetSceneId)) {
+              current.onSelect(hotspot.id);
+              return;
+            }
             if (action === 'navigate' && target && hotspot.targetSceneId) {
               const returnHotspot = target.hotspots.find((item) => item.targetSceneId === current.scene.id);
               const arrivalYaw = hotspot.autoFaceBack === false ? (hotspot.arrivalYaw ?? 0) : (returnHotspot?.yaw ?? signedAngle(hotspot.yaw + 180));

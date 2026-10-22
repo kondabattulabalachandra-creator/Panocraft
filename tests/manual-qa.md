@@ -72,3 +72,10 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 **Editor preflight and ZIP integrity.** In the local production preview, a temporary 512×512 PNG produced both the non-2:1 and unreachable-scene warnings. Canceling the confirmation created no ZIP; continuing produced a four-scene ZIP with four hotspots and four valid navigation links. Each of the four extracted panorama hashes exactly matched its IndexedDB source, and every panorama was stored without ZIP compression. The original three-scene sample project was restored afterward.
 
 **Standalone runtime.** The three-scene export included all 12 expected files, returned HTTP 200 for Pannellum JavaScript/CSS, tour CSS, and `tour.json`, and rendered on a local static HTTP server. Following the `Enter showroom` hotspot navigated to the next scene and displayed its two hotspots. The browser console reported no errors.
+
+
+## Linked hotspot arrow-click behavior
+
+1. In edit mode, click the arrow portion of a navigation hotspot and confirm the assigned destination scene opens without entering preview.
+2. Click the hotspot label or its Scene connections row and confirm the current scene stays open while the hotspot inspector selects that marker.
+3. Enter Preview tour, click the same navigation arrow, and confirm it opens the same assigned destination with the configured arrival direction.
