@@ -1,4 +1,4 @@
-# Luxe360 Studio QA checklist
+# Luxee360 Studio QA checklist
 
 ## Repeatable manual checks
 
@@ -47,3 +47,12 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 **Hosted drag/drop.** Dropping the `Main showroom` scene card onto the `Store entrance` panorama activated the drop overlay and created a second hotspot with the `Main showroom` label, a valid destination ID, and navigation action. A drop of the active scene onto its own panorama was rejected with “A scene cannot connect to itself” and did not increase the marker count. The click-placement fallback created a `New connection` with no destination and action `none`; selecting `Main showroom` changed it to a navigation hotspot. The temporary links were deleted afterward. Dragging `Service counter` onto `Store entrance` reordered the list, and the original order was restored using the move controls. No panorama viewer error appeared.
 
 **Local production regression checks.** On the merged `d48c5df` working tree, `npm run typecheck`, `npm run build`, and `git diff --check` passed. A saved Force 2D test marker with a 60° X-axis setting rendered with `rotate(0deg) scale(var(--addon-zoom, 1))`, with no perspective or X/Y/Z 3D rotation. Backup imports with duplicate scene IDs and duplicate hotspot IDs were both rejected with specific errors; the existing three-scene project remained intact. A fresh standalone ZIP contained 12 entries, six test hotspots, the Force 2D flag and runtime branch, Pannellum JS/CSS, and the Pannellum license notice. Temporary local test hotspots were then removed, restoring the sample counts to 1/2/1.
+
+
+## Professional workspace redesign
+
+1. On desktop, confirm the compact top bar shows project name, undo/redo, local save status, Save, Export, and Preview; verify the Export button downloads the standalone ZIP.
+2. Collapse and reopen the scene sidebar. Confirm the viewer expands into the freed space and the thumbnail strip remains available.
+3. Select scenes from the bottom strip, then drag a non-active thumbnail onto the panorama. Confirm exact-position placement and correct destination; verify the strip scrolls horizontally without page overflow on narrow widths.
+4. Select a hotspot and use **Duplicate hotspot**. Confirm the copy is selected, preserves destination/action/appearance, and receives a visible offset. Confirm an empty source label produces a readable “Hotspot copy” label.
+5. Switch between dark and light themes and verify the strip, toolbar, and sidebar controls retain legible contrast.
