@@ -4,6 +4,33 @@ export interface Hotspot {
   targetSceneId: string;
   pitch: number;
   yaw: number;
+  icon?: 'arrow' | 'info' | 'pin' | 'star' | 'camera';
+  iconDataUrl?: string;
+  tint?: string;
+  width?: number;
+  height?: number;
+  opacity?: number;
+  rotation?: number;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+  placementMode?: '2d' | 'floor' | 'wall';
+  scaleOnZoom?: boolean;
+  labelFontSize?: number;
+  labelColor?: string;
+  labelBackground?: string;
+  labelBold?: boolean;
+  labelItalic?: boolean;
+  labelAlignment?: 'left' | 'center' | 'right';
+  shadow?: boolean;
+  onlyHover?: boolean;
+  force2D?: boolean;
+  action?: 'navigate' | 'none' | 'url' | 'info';
+  actionUrl?: string;
+  actionInfo?: string;
+  autoFaceBack?: boolean;
+  arrivalYaw?: number;
+  arrivalPitch?: number;
 }
 
 export interface Scene {
@@ -132,6 +159,7 @@ function dataUrlToBlob(value: string): Blob {
   const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(value);
   if (!match) throw new Error('A panorama in this backup has invalid image data.');
   const type = match[1] || 'application/octet-stream';
+  if (!/^image\/(jpeg|png|webp)$/i.test(type)) throw new Error('Panoramas in backups must be JPG, PNG, or WebP images.');
   if (match[2]) {
     const raw = atob(match[3]);
     const bytes = new Uint8Array(raw.length);
@@ -166,33 +194,62 @@ export async function importProjectJson(file: File): Promise<Project> {
   for (const raw of p.scenes) {
     if (!raw.id || typeof raw.name !== 'string' || typeof raw.imageDataUrl !== 'string') throw new Error('A scene in this backup is missing a required field.');
     const blob = dataUrlToBlob(raw.imageDataUrl);
-    let width = Number(raw.width) || 0;
-    let height = Number(raw.height) || 0;
-    if (!width || !height) {
-      const bitmap = await createImageBitmap(blob);
-      width = bitmap.width; height = bitmap.height; bitmap.close();
-    }
+    const bitmap = await createImageBitmap(blob);
+    const width = bitmap.width; const height = bitmap.height; bitmap.close();
+    if (!width || !height) throw new Error('A panorama in this backup has invalid dimensions.');
     scenes.push({
-      id: String(raw.id), name: raw.name, mimeType: raw.mimeType || blob.type || 'image/jpeg', size: blob.size,
-      width, height, blob, imageUrl: URL.createObjectURL(blob),
+      id: String(raw.id), name: raw.name, mimeType: blob.type.toLowerCase(), size: blob.size,
+      width, height, blob, imageUrl: '',
       latitude: finiteOptional(raw.latitude), longitude: finiteOptional(raw.longitude),
       heading: Number.isFinite(Number(raw.heading)) ? Number(raw.heading) : 0,
       hotspots: Array.isArray(raw.hotspots) ? raw.hotspots.map((h: any) => ({
         id: String(h.id || newId()), label: String(h.label || ''), targetSceneId: String(h.targetSceneId || ''),
         pitch: Number.isFinite(Number(h.pitch)) ? Number(h.pitch) : 0,
-        yaw: Number.isFinite(Number(h.yaw)) ? Number(h.yaw) : 0
+        yaw: Number.isFinite(Number(h.yaw)) ? Number(h.yaw) : 0,
+        icon: ['arrow', 'info', 'pin', 'star', 'camera'].includes(h.icon) ? h.icon : 'arrow',
+        iconDataUrl: safeDataImage(h.iconDataUrl) || undefined,
+        tint: safeColor(h.tint, '#e0c45d'),
+        width: boundedNumber(h.width, 44, 16, 120), height: boundedNumber(h.height, 44, 16, 120),
+        opacity: boundedNumber(h.opacity, 100, 5, 100), rotation: boundedNumber(h.rotation, 0, -180, 180),
+        rotationX: boundedNumber(h.rotationX, h.placementMode === 'floor' ? 65 : 0, -180, 180), rotationY: boundedNumber(h.rotationY, 0, -180, 180), rotationZ: boundedNumber(h.rotationZ, 0, -180, 180),
+        placementMode: ['2d', 'floor', 'wall'].includes(h.placementMode) ? h.placementMode : '2d',
+        scaleOnZoom: h.scaleOnZoom !== false,
+        labelFontSize: boundedNumber(h.labelFontSize, 11, 6, 36), labelColor: safeColor(h.labelColor, '#29362e'),
+        labelBackground: safeColor(h.labelBackground, '#ffffff'), labelBold: Boolean(h.labelBold), labelItalic: Boolean(h.labelItalic),
+        labelAlignment: ['left', 'center', 'right'].includes(h.labelAlignment) ? h.labelAlignment : 'center',
+        shadow: h.shadow !== false, onlyHover: Boolean(h.onlyHover), force2D: Boolean(h.force2D),
+        action: ['navigate', 'none', 'url', 'info'].includes(h.action) ? h.action : (h.targetSceneId ? 'navigate' : 'none'),
+        actionUrl: typeof h.actionUrl === 'string' ? h.actionUrl.slice(0, 2048) : '',
+        actionInfo: typeof h.actionInfo === 'string' ? h.actionInfo.slice(0, 1000) : '',
+        autoFaceBack: h.autoFaceBack !== false,
+        arrivalYaw: Number.isFinite(Number(h.arrivalYaw)) ? Math.max(-180, Math.min(180, Number(h.arrivalYaw))) : undefined,
+        arrivalPitch: Number.isFinite(Number(h.arrivalPitch)) ? Math.max(-90, Math.min(90, Number(h.arrivalPitch))) : undefined
       })) : [],
       googlePhotoId: raw.googlePhotoId ? String(raw.googlePhotoId) : undefined,
       googleShareLink: raw.googleShareLink ? String(raw.googleShareLink) : undefined
     });
   }
   const ids = new Set(scenes.map((scene) => scene.id));
+  for (const scene of scenes) scene.imageUrl = URL.createObjectURL(scene.blob);
   for (const scene of scenes) scene.hotspots = scene.hotspots.filter((h) => !h.targetSceneId || ids.has(h.targetSceneId));
   return { id: String(p.id || newId()), name: String(p.name || 'Imported tour'), updatedAt: Date.now(), scenes, startSceneId: ids.has(p.startSceneId) ? p.startSceneId : scenes[0]?.id || null };
 }
 
 function finiteOptional(value: unknown): number | undefined {
   return value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
+}
+
+function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+
+function safeColor(value: unknown, fallback: string): string {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+}
+
+function safeDataImage(value: unknown): string {
+  return typeof value === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(value) ? value : '';
 }
 
 function sampleSvg(title: string, tone: number): string {

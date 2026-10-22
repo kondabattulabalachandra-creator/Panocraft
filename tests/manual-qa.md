@@ -5,9 +5,9 @@
 Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production output with `npm run preview` and open the app at the repository base path `/Panocraft/`.
 
 1. **Import and persistence:** load at least two local panorama files; select scenes, reload, and confirm scene records and image pixels are present.
-2. **Hotspots:** place a marker, set its label/destination and pitch/yaw, reposition it, duplicate/delete it, then follow it in preview. Confirm markers are unique after viewer load and that destination links resolve to stable scene IDs.
+2. **Hotspots:** place a marker, set its label/destination and pitch/yaw, reposition it, duplicate/delete it, then follow it in preview. Confirm markers are unique after viewer load and that destination links resolve to stable scene IDs. Change icon/tint/size/opacity/rotation; try advanced axis rotation, 2D/floor/wall placement, zoom scaling, label size/colors/formatting/alignment, shadow, hover-only, and force-2D. Exercise no-action, scene navigation, HTTP(S) link, and information actions.
 3. **Project backup:** export a `.luxe360.json`, import it back with confirmation, and verify scene names, image data, links, locations, and start scene.
-4. **Standalone website:** export the tour ZIP, confirm `index.html`, `tour.json`, local panorama files, `vendor/pannellum.js`, `vendor/pannellum.css`, `vendor/tour.css`, and `vendor/PANNELLUM-LICENSE.txt`, then test it from a static HTTP server.
+4. **Standalone website:** export the tour ZIP, confirm `index.html`, `tour.json`, local panorama files, `vendor/pannellum.js`, `vendor/pannellum.css`, `vendor/tour.css`, and `vendor/PANNELLUM-LICENSE.txt`, then test it from a static HTTP server. Confirm hotspot appearance, labels, and actions match the editor.
 5. **Responsive layout:** inspect narrow phone, tablet, and desktop widths. Confirm bottom navigation opens scene/property panels without horizontal page overflow.
 6. **Google publishing:** without a configured public OAuth client ID and valid coordinates, verify that authorization/publish controls remain unavailable. With a separately configured test Google project, test consent and API errors. Do not send a real photo unless the user explicitly configures and initiates that action.
 
@@ -24,3 +24,11 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 **Google preflight.** The local project had no OAuth client ID and no scene coordinates. The panel reported 0/3 scenes ready and kept authorization and publication disabled. No Google authorization, upload, or publication was attempted.
 
 **Deployment verification.** Commit `f961079` was deployed by GitHub Actions run [`39745275677`](https://github.com/kondabattulabalachandra-creator/Panocraft/actions/runs/39745275677), which completed successfully. The cache-busted public URL <https://kondabattulabalachandra-creator.github.io/Panocraft/?cb=f961079> loaded the dark editor, Luxe Growth logo, and saved three-scene tour. The root, `/Panocraft/assets/index-sJeF0gZZ.js`, `/Panocraft/assets/index-CTqB650a.css`, and `/Panocraft/assets/luxeegrowth-logo-CVnH6Xp3.jpeg` each returned HTTP 200 with HTML, JavaScript, CSS, and JPEG MIME types respectively. Browser console was clean. On the hosted build, the sample hotspot count remained one after selection, preview navigation reached Main showroom, and the lazy export chunk loaded only after the ZIP action. The downloaded ZIP contained three scenes, four valid sample links, local images, viewer assets, and the Pannellum license notice.
+
+
+## Priority walkthrough-direction check
+
+1. In room A, place a default floor-arrow connection to room B and verify its arrow is visibly floor-tilted and stays at its selected panorama position.
+2. Add a reciprocal hotspot from room B back to room A. Follow A→B in preview and verify the initial view in B faces toward that return hotspot; follow B→A and verify the reverse direction.
+3. Remove the reciprocal connection in B and verify automatic arrival falls back to the opposite of the exit yaw. Disable automatic facing on one A→B hotspot, set arrival yaw/pitch, and verify only that connection uses the custom direction.
+4. Create two different links into room B with different manual directions; verify each link preserves its own direction across reload, project backup restore, and standalone ZIP export.

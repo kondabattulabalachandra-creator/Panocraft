@@ -8,14 +8,19 @@ Scenes appear in the left panel. Select one to edit it, use its quick controls t
 
 ## Create and tune navigation hotspots
 
-Select a scene, choose **Add hotspot** (or press `H`), then click the desired point in the panorama. A hotspot stores spherical pitch and yaw values, so its position remains attached to the panorama as you look around. In the inspector:
+Select a scene, choose **Add hotspot** (or press `H`), then click the desired point in the panorama. New navigation markers use a tilted floor-arrow style by default; choose 2D or wall placement when that fits better. A hotspot stores spherical pitch and yaw values, so its position remains attached to the panorama as you look around. In the inspector:
 
 - Give the marker a short label and choose a destination scene.
+- In **Arrival view**, each connection can set its own starting camera direction. **Face back toward previous room automatically** uses a matching return hotspot in the destination when present, otherwise it turns back from the exit direction. Turn this off to enter an exact arrival yaw and pitch for that connection.
 - Enter yaw and pitch for numeric placement. Pitch is clamped to the range −90° to 90°.
 - Use **Reposition in panorama** to place it visually instead.
+- In **Icon**, choose an arrow, information, pin, star, or camera marker, or upload a PNG, JPG, WebP, or GIF under 4 MB. Set its tint, width, height, opacity, and rotation; **Advanced** exposes per-axis rotation.
+- Choose a 2D, floor, or wall display style and turn **Scale on zoom** on or off.
+- Edit the label text and set its font size, text/background colors, bold/italic styling, and alignment. **Shadow**, **Only hover**, and **Force 2D** adjust marker presentation.
+- Set **Action** to no action, navigate to a scene, open an HTTP(S) link, or show an information message. Link actions accept only web addresses.
 - Duplicate or delete the selected marker as needed.
 
-A marker with no valid destination is flagged in the inspector and does not navigate in preview. Choose **Preview tour** and follow the arrows to test the linked route. Exit preview to edit again.
+A navigation marker with no valid destination is flagged in the inspector and does not navigate in preview. Choose **Preview tour** to try the configured action and confirm that each linked room opens in its configured arrival direction. Use **Tiny planet** in the canvas toolbar to switch to a stereographic tiny-planet view; toggle it again to return to the normal panorama view. Exit preview to edit again.
 
 ## Keyboard and responsive controls
 
@@ -27,11 +32,11 @@ Use the sun/moon icon to switch between dark and light mode. Dark mode is the de
 
 ## Saving, backups, and website export
 
-Edits autosave to IndexedDB in the current browser profile. The status in the top bar reports whether local saving has completed. Use **Project → Save now** to request an immediate save.
+Edits autosave to IndexedDB in the current browser profile. The status in the top bar reports whether local saving has completed. Use the top-bar **Save** button or **Project → Save now** to request an immediate save.
 
 Use **Project → Export project backup** to download a `.luxe360.json` containing scene metadata, links, and embedded panorama bytes. This file can be moved to another device. **Project → Import project backup** replaces the current project only after confirmation.
 
-Use **Project → Export standalone tour ZIP** to create a static website package. Extract the ZIP and serve it from a static HTTP server with the directory structure intact. The ZIP includes its panorama images, `index.html`, tour configuration, local Pannellum files, stylesheet, and Pannellum license notice. This is not a Google Maps upload.
+Use **Project → Export standalone tour ZIP** to create a static website package. Extract the ZIP and serve it from a static HTTP server with the directory structure intact. The ZIP includes its panorama images, hotspot appearance/labels/actions, `index.html`, tour configuration, local Pannellum files, stylesheet, and Pannellum license notice. This is not a Google Maps upload.
 
 ## Optional Google Street View publishing
 

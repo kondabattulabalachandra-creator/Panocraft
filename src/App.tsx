@@ -7,6 +7,7 @@ import {
   ShieldCheck, Sun, Trash2, Undo2, Upload, WandSparkles, X, ZoomIn
 } from 'lucide-react';
 import PanoramaCanvas from './components/PanoramaCanvas';
+import HotspotAddonPanel from './components/HotspotAddonPanel';
 import luxeGrowthLogo from './assets/luxeegrowth-logo.jpeg';
 import {
   cloneProject, createProject, createSampleProject, exportProjectJson,
@@ -81,15 +82,18 @@ export default function App() {
   const [history, setHistory] = useState<Project[]>([]);
   const [redoHistory, setRedoHistory] = useState<Project[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [cameraTarget, setCameraTarget] = useState<{ sceneId: string; yaw: number; pitch: number } | null>(null);
   const [hotspotId, setHotspotId] = useState<string | null>(null);
   const [tab, setTab] = useState<'editor' | 'google'>('editor');
   const [mode, setMode] = useState<EditMode>('select');
   const [preview, setPreview] = useState(false);
+  const [tinyPlanet, setTinyPlanet] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try { return localStorage.getItem('luxe360-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
   });
   const [saveState, setSaveState] = useState<'loading' | 'saving' | 'saved' | 'error'>('loading');
   const [loaded, setLoaded] = useState(false);
+  const [projectLoadOk, setProjectLoadOk] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<'scenes' | 'properties' | null>(null);
@@ -103,6 +107,7 @@ export default function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const backupRef = useRef<HTMLInputElement>(null);
   const toastRef = useRef<number | null>(null);
+  const knownObjectUrlsRef = useRef<Set<string>>(new Set());
 
   const activeScene = project.scenes.find((s) => s.id === activeId) || project.scenes[0] || null;
   const selectedHotspot = activeScene?.hotspots.find((h) => h.id === hotspotId) || null;
@@ -116,26 +121,38 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadProject(), loadGoogleClientId()]).then(([saved, savedClient]) => {
+    loadProject().then((saved) => {
       if (cancelled) return;
       if (saved) { setProject(saved); setActiveId(saved.startSceneId || saved.scenes[0]?.id || null); }
-      if (savedClient) setClientId(savedClient);
-      setLoaded(true); setSaveState('saved');
+      setProjectLoadOk(true); setLoaded(true); setSaveState('saved');
     }).catch((error: unknown) => {
       if (cancelled) return;
-      setLoaded(true); setSaveState('error'); notify(error instanceof Error ? error.message : 'Could not restore local project.', 'error');
+      setLoaded(true); setSaveState('error'); notify(error instanceof Error ? error.message : 'Could not restore local project. Existing data was left untouched.', 'error');
+    });
+    loadGoogleClientId().then((savedClient) => {
+      if (!cancelled && savedClient) setClientId(savedClient);
+    }).catch((error: unknown) => {
+      if (!cancelled) notify(error instanceof Error ? 'Google settings could not be restored: ' + error.message : 'Google settings could not be restored.', 'error');
     });
     return () => { cancelled = true; };
   }, [notify]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !projectLoadOk) return;
     setSaveState('saving');
     const timer = window.setTimeout(() => saveProject(project).then(() => setSaveState('saved')).catch((error: unknown) => {
       setSaveState('error'); notify(error instanceof Error ? 'Local save failed: ' + error.message : 'Local save failed. Export a backup.', 'error');
     }), 400);
     return () => window.clearTimeout(timer);
-  }, [project, loaded, notify]);
+  }, [project, loaded, projectLoadOk, notify]);
+
+  useEffect(() => {
+    const urls = new Set([...project.scenes, ...history.flatMap((item) => item.scenes), ...redoHistory.flatMap((item) => item.scenes)].map((scene) => scene.imageUrl));
+    for (const url of knownObjectUrlsRef.current) if (!urls.has(url)) URL.revokeObjectURL(url);
+    knownObjectUrlsRef.current = urls;
+  }, [project, history, redoHistory]);
+
+  useEffect(() => () => { for (const url of knownObjectUrlsRef.current) URL.revokeObjectURL(url); }, []);
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
@@ -191,10 +208,11 @@ export default function App() {
     setIsBusy(true); const scenes: Scene[] = []; const failures: string[] = [];
     for (const file of selected) {
       try {
-        const blob = file.slice(0, file.size, file.type || 'application/octet-stream');
+        const mimeType = /^image\/(jpeg|png|webp)$/i.test(file.type) ? file.type.toLowerCase() : /\.png$/i.test(file.name) ? 'image/png' : /\.webp$/i.test(file.name) ? 'image/webp' : 'image/jpeg';
+        const blob = file.slice(0, file.size, mimeType);
         const bitmap = await createImageBitmap(blob); const width = bitmap.width; const height = bitmap.height; bitmap.close();
         if (!width || !height) throw new Error('Invalid dimensions');
-        scenes.push({ id: newId(), name: fileName(file.name), mimeType: file.type || 'image/jpeg', size: file.size, width, height, blob, imageUrl: URL.createObjectURL(blob), heading: 0, hotspots: [] });
+        scenes.push({ id: newId(), name: fileName(file.name), mimeType, size: file.size, width, height, blob, imageUrl: URL.createObjectURL(blob), heading: 0, hotspots: [] });
       } catch { failures.push(file.name); }
     }
     if (scenes.length) {
@@ -229,7 +247,7 @@ export default function App() {
     }
     if (mode !== 'add') return;
     const target = project.scenes.find((s) => s.id !== activeScene.id);
-    const created: Hotspot = { id: newId(), label: target ? 'Next area' : 'New hotspot', targetSceneId: target?.id || '', pitch: Math.round(pitch * 10) / 10, yaw: Math.round(yaw * 10) / 10 };
+    const created: Hotspot = { id: newId(), label: target ? 'Next area' : 'New hotspot', targetSceneId: target?.id || '', pitch: Math.round(pitch * 10) / 10, yaw: Math.round(yaw * 10) / 10, action: target ? 'navigate' : 'none', icon: 'arrow', tint: '#e0c45d', width: 44, height: 44, opacity: 100, rotation: 0, placementMode: 'floor', scaleOnZoom: true, labelFontSize: 11, labelColor: '#29362e', labelBackground: '#ffffff', labelAlignment: 'center', shadow: true, autoFaceBack: true };
     pushProject({ ...project, scenes: project.scenes.map((s) => s.id === activeScene.id ? { ...s, hotspots: [...s.hotspots, created] } : s) });
     setHotspotId(created.id); setMode('select'); setMobilePanel('properties'); notify('Hotspot added. Choose its destination in the inspector.', 'success');
   };
@@ -268,6 +286,10 @@ export default function App() {
     const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
+  const saveNow = async () => {
+    try { await saveProject(project); setSaveState('saved'); notify('Project saved locally.', 'success'); }
+    catch (error) { setSaveState('error'); notify(error instanceof Error ? error.message : 'Save failed.', 'error'); }
+  };
   const exportProject = async () => {
     setIsBusy(true); try { downloadBlob(await exportProjectJson(project), (project.name || 'luxe360-project').replace(/[^\w-]+/g, '-').toLowerCase() + '.luxe360.json'); notify('Project backup exported, including the original panorama files.', 'success'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Project export failed.', 'error'); }
@@ -283,7 +305,7 @@ export default function App() {
     try {
       const restored = await importProjectJson(file);
       if (!window.confirm(`Replace the current project with “${restored.name}”?`)) { restored.scenes.forEach((s) => URL.revokeObjectURL(s.imageUrl)); return; }
-      historyReset(); setProject(restored); setActiveId(restored.startSceneId || restored.scenes[0]?.id || null); setHotspotId(null); setTab('editor'); setPreview(false); notify('Project backup restored.', 'success');
+      historyReset(); setProject(restored); setProjectLoadOk(true); setActiveId(restored.startSceneId || restored.scenes[0]?.id || null); setHotspotId(null); setTab('editor'); setPreview(false); notify('Project backup restored.', 'success');
     } catch (error) { notify(error instanceof Error ? error.message : 'Backup import failed.', 'error'); }
     if (backupRef.current) backupRef.current.value = ''; setMenuOpen(false);
   };
@@ -342,8 +364,11 @@ export default function App() {
   const handleDrop = (event: DragEvent<HTMLDivElement>, id: string) => { event.preventDefault(); const dragged = event.dataTransfer.getData('text/luxe360-scene'); if (dragged) reorder(dragged, id); };
   const selectedTargetExists = !!selectedHotspot && project.scenes.some((s) => s.id === selectedHotspot.targetSceneId);
   const activeIndex = activeScene ? project.scenes.findIndex((s) => s.id === activeScene.id) : -1;
+  const initialView = activeScene && cameraTarget?.sceneId === activeScene.id
+    ? cameraTarget
+    : { yaw: activeScene ? ((activeScene.heading + 180) % 360 + 360) % 360 - 180 : 0, pitch: 0 };
 
-  return <div className={'app-shell' + (theme === 'dark' ? ' theme-dark' : '')}>
+  return <div className={'app-shell' + (theme === 'dark' ? ' theme-dark' : '') + (!loaded ? ' app-loading' : '')}>
     <header className="topbar">
       <div className="brand-lockup"><img className="brand-logo" src={luxeGrowthLogo} alt="Luxe Growth"/><div className="brand-copy"><span className="brand-name">Luxe360 <b>Studio</b></span><span className="brand-subtitle">360° TOUR EDITOR</span></div></div>
       <div className="topbar-divider"/>
@@ -353,8 +378,9 @@ export default function App() {
         <button className="icon-button history-button" title="Undo (Ctrl/⌘+Z)" aria-label="Undo" aria-keyshortcuts="Control+Z Meta+Z" disabled={!history.length || preview} onClick={undo}><Undo2 size={17}/></button><button className="icon-button history-button" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z" disabled={!redoHistory.length || preview} onClick={redo}><Redo2 size={17}/></button><div className="action-divider"/>
         <button className="icon-button theme-toggle" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}</button>
         <button className={'tab-button ' + (tab === 'editor' ? 'tab-button-active' : '')} onClick={() => { setTab('editor'); setPreview(false); }}><MousePointer2 size={15}/> Editor</button><button className={'tab-button ' + (tab === 'google' ? 'tab-button-active' : '')} onClick={() => { setTab('google'); setPreview(false); setMode('select'); }}><Globe size={15}/> Google publishing</button>
-        <div className="project-menu-wrap"><button className="button button-quiet" onClick={() => setMenuOpen((v) => !v)}><FolderOpen size={16}/> Project <ChevronDown size={14}/></button>{menuOpen && <div className="dropdown-menu"><button onClick={() => { void saveProject(project).then(() => notify('Project saved locally.', 'success')).catch((e: unknown) => notify(e instanceof Error ? e.message : 'Save failed.', 'error')); setMenuOpen(false); }}><Save size={15}/> Save now</button><button onClick={exportProject} disabled={isBusy}><FileJson size={15}/> Export project backup</button><button onClick={() => backupRef.current?.click()}><Upload size={15}/> Import project backup</button><button onClick={exportTour} disabled={isBusy}><FileArchive size={15}/> Export standalone tour ZIP</button></div>}</div>
-        {tab === 'editor' && <button className={'button ' + (preview ? 'button-dark' : 'button-primary')} onClick={() => { setPreview((v) => !v); setMode('select'); setHotspotId(null); }}>{preview ? <X size={15}/> : <Maximize2 size={15}/>} {preview ? 'Exit preview' : 'Preview tour'}</button>}
+        <div className="project-menu-wrap"><button className="button button-quiet" onClick={() => setMenuOpen((v) => !v)}><FolderOpen size={16}/> Project <ChevronDown size={14}/></button>{menuOpen && <div className="dropdown-menu"><button onClick={() => { void saveNow(); setMenuOpen(false); }}><Save size={15}/> Save now</button><button onClick={exportProject} disabled={isBusy}><FileJson size={15}/> Export project backup</button><button onClick={() => backupRef.current?.click()}><Upload size={15}/> Import project backup</button><button onClick={exportTour} disabled={isBusy}><FileArchive size={15}/> Export standalone tour ZIP</button></div>}</div>
+        <button className="button button-primary quick-save-button" onClick={() => void saveNow()}><Save size={15}/> Save</button>
+        {tab === 'editor' && <button className={'button ' + (preview ? 'button-dark' : 'button-primary')} onClick={() => { setPreview((v) => !v); setMode('select'); setHotspotId(null); setTinyPlanet(false); }}>{preview ? <X size={15}/> : <Maximize2 size={15}/>} {preview ? 'Exit preview' : 'Preview tour'}</button>}
         <input ref={backupRef} className="visually-hidden" type="file" accept="application/json,.json,.luxe360.json" onChange={(e) => void restoreProject(e.target.files?.[0])}/>
       </div>
     </header>
@@ -365,7 +391,7 @@ export default function App() {
         <div className="scene-toolbar"><span>{linkedCount} linked hotspots</span><button className="text-button" onClick={() => inputRef.current?.click()}><ImagePlus size={14}/> Add photos</button></div>
         <input ref={inputRef} className="visually-hidden" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(e) => e.target.files && void importPhotos(e.target.files)}/>
         <div className="scene-list">
-          {!project.scenes.length ? <div className="empty-scenes"><div className="empty-icon"><FileImage size={21}/></div><strong>No scenes yet</strong><span>Import panorama photos to start building your tour.</span><button className="button button-primary button-full" onClick={() => inputRef.current?.click()}><Upload size={15}/> Import panoramas</button><button className="text-button centered" disabled={isBusy} onClick={() => void loadSample()}><WandSparkles size={14}/> Try sample tour</button></div> : project.scenes.map((scene, index) => <div key={scene.id} className={'scene-card ' + (scene.id === activeScene?.id ? 'scene-card-active' : '')} onClick={() => { setActiveId(scene.id); setHotspotId(null); setMode('select'); if (mobilePanel === 'scenes') setMobilePanel(null); }} draggable={!preview} onDragStart={(e) => e.dataTransfer.setData('text/luxe360-scene', scene.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, scene.id)}>
+          {!project.scenes.length ? <div className="empty-scenes"><div className="empty-icon"><FileImage size={21}/></div><strong>No scenes yet</strong><span>Import panorama photos to start building your tour.</span><button className="button button-primary button-full" onClick={() => inputRef.current?.click()}><Upload size={15}/> Import panoramas</button><button className="text-button centered" disabled={isBusy} onClick={() => void loadSample()}><WandSparkles size={14}/> Try sample tour</button></div> : project.scenes.map((scene, index) => <div key={scene.id} className={'scene-card ' + (scene.id === activeScene?.id ? 'scene-card-active' : '')} onClick={() => { setActiveId(scene.id); setCameraTarget(null); setHotspotId(null); setMode('select'); if (mobilePanel === 'scenes') setMobilePanel(null); }} draggable={!preview} onDragStart={(e) => e.dataTransfer.setData('text/luxe360-scene', scene.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, scene.id)}>
             <div className="scene-thumb"><img src={scene.imageUrl} alt=""/><span className="scene-number">{String(index + 1).padStart(2, '0')}</span>{scene.id === project.startSceneId && <span className="start-badge">START</span>}</div>
             <div className="scene-card-body"><div className="scene-name-row"><span className="scene-name">{scene.name}</span><span className="scene-drag-handle"><GripVertical size={14}/></span></div><span className="scene-meta">{scene.width} × {scene.height} · {bytesLabel(scene.size)}</span><div className="scene-mini-status"><span className={'status-dot ' + (scene.width / scene.height > 1.97 && scene.width / scene.height < 2.03 ? 'status-ok' : 'status-warn')}/><span>{scene.width / scene.height > 1.97 && scene.width / scene.height < 2.03 ? '2:1 panorama' : 'Check proportions'}</span>{scene.hotspots.length > 0 && <span className="hotspot-count"><Link2 size={11}/> {scene.hotspots.length}</span>}</div></div>
             {!preview && <div className="scene-quick-actions" onClick={(e) => e.stopPropagation()}><button className="tiny-icon-button" title="Move scene up" disabled={index === 0} onClick={() => moveScene(scene.id, -1)}><ArrowUp size={12}/></button><button className="tiny-icon-button" title="Move scene down" disabled={index === project.scenes.length - 1} onClick={() => moveScene(scene.id, 1)}><ArrowDown size={12}/></button></div>}
@@ -376,8 +402,8 @@ export default function App() {
 
       <section className="editor-main">
         {tab === 'editor' ? <>
-          <div className="canvas-toolbar"><div className="canvas-location"><span className="canvas-breadcrumb">TOUR EDITOR</span>{activeScene && <><ChevronDown size={13} className="breadcrumb-chevron"/><span className="canvas-current">{activeScene.name}</span></>}</div><div className="canvas-tools">{activeScene && <span className="aspect-chip">{(activeScene.width / activeScene.height).toFixed(2)}:1</span>}<button className="canvas-tool" title="Select mode (V)" aria-keyshortcuts="V" aria-pressed={mode === 'select'} disabled={preview || !activeScene} onClick={() => setMode('select')}><MousePointer2 size={15}/><span>Select</span></button><button className={'canvas-tool ' + (mode === 'add' ? 'canvas-tool-active' : '')} title="Add hotspot (H)" aria-keyshortcuts="H" aria-pressed={mode === 'add'} disabled={preview || !activeScene || project.scenes.length < 2} onClick={() => { setMode(mode === 'add' ? 'select' : 'add'); setHotspotId(null); }}><Plus size={15}/><span>Add hotspot</span></button>{mode !== 'select' && <span className="mode-hint">{mode === 'add' ? 'Click to place' : 'Click to reposition'}</span>}</div></div>
-          {activeScene ? <div className="canvas-wrap"><PanoramaCanvas scene={activeScene} allScenes={project.scenes} mode={preview ? 'select' : mode} selectedHotspotId={hotspotId} preview={preview} onPlace={placeHotspot} onSelect={(id) => { setHotspotId(id); setMode('select'); if (window.innerWidth < 900) setMobilePanel('properties'); }} onNavigate={(id) => { setActiveId(id); setHotspotId(null); }}/>{preview && <div className="preview-badge"><span className="preview-live-dot"/> Tour preview <span>·</span> {activeIndex + 1} of {project.scenes.length}</div>}{project.scenes.length === 1 && !preview && <div className="canvas-bottom-note"><Info size={13}/> Import another scene to connect navigation hotspots.</div>}</div> : <div className="canvas-empty"><div className="empty-canvas-art"><div className="empty-globe"><Globe size={36}/></div><span className="orbit orbit-one"/><span className="orbit orbit-two"/></div><p className="eyebrow">START BUILDING</p><h1>Your next space starts here.</h1><p>Import your 360° photos to connect scenes and build an interactive walkthrough.</p><div className="empty-actions"><button className="button button-primary" onClick={() => inputRef.current?.click()}><Upload size={16}/> Import panorama photos</button><button className="button button-quiet" disabled={isBusy} onClick={() => void loadSample()}><WandSparkles size={15}/> Try a sample tour</button></div><span className="micro-copy"><ShieldCheck size={13}/> No account. No upload. Your files stay on this device.</span></div>}
+          <div className="canvas-toolbar"><div className="canvas-location"><span className="canvas-breadcrumb">TOUR EDITOR</span>{activeScene && <><ChevronDown size={13} className="breadcrumb-chevron"/><span className="canvas-current">{activeScene.name}</span></>}</div><div className="canvas-tools">{activeScene && <span className="aspect-chip">{(activeScene.width / activeScene.height).toFixed(2)}:1</span>}<button className="canvas-tool" title="Select mode (V)" aria-keyshortcuts="V" aria-pressed={mode === 'select'} disabled={preview || !activeScene} onClick={() => setMode('select')}><MousePointer2 size={15}/><span>Select</span></button><button className={'canvas-tool ' + (mode === 'add' ? 'canvas-tool-active' : '')} title="Add hotspot (H)" aria-keyshortcuts="H" aria-pressed={mode === 'add'} disabled={preview || !activeScene || project.scenes.length < 2} onClick={() => { setTinyPlanet(false); setMode(mode === 'add' ? 'select' : 'add'); setHotspotId(null); }}><Plus size={15}/><span>Add hotspot</span></button><button className={'canvas-tool ' + (tinyPlanet ? 'canvas-tool-active' : '')} title="Toggle tiny-planet view" aria-pressed={tinyPlanet} disabled={!activeScene} onClick={() => setTinyPlanet((enabled) => { const next = !enabled; if (next) setMode('select'); return next; })}><Globe size={15}/><span>{tinyPlanet ? 'Exit tiny planet' : 'Tiny planet'}</span></button>{mode !== 'select' && <span className="mode-hint">{mode === 'add' ? 'Click to place' : 'Click to reposition'}</span>}</div></div>
+          {activeScene ? <div className="canvas-wrap"><PanoramaCanvas scene={activeScene} allScenes={project.scenes} initialYaw={initialView.yaw} initialPitch={initialView.pitch} mode={preview ? 'select' : mode} selectedHotspotId={hotspotId} preview={preview} tinyPlanet={tinyPlanet} onPlace={placeHotspot} onSelect={(id) => { setHotspotId(id); setMode('select'); if (window.innerWidth < 900) setMobilePanel('properties'); }} onNavigate={(id, yaw, pitch) => { setCameraTarget({ sceneId: id, yaw, pitch }); setActiveId(id); setHotspotId(null); }}/>{preview && <div className="preview-badge"><span className="preview-live-dot"/> Tour preview <span>·</span> {activeIndex + 1} of {project.scenes.length}</div>}{project.scenes.length === 1 && !preview && <div className="canvas-bottom-note"><Info size={13}/> Import another scene to connect navigation hotspots.</div>}</div> : <div className="canvas-empty"><div className="empty-canvas-art"><div className="empty-globe"><Globe size={36}/></div><span className="orbit orbit-one"/><span className="orbit orbit-two"/></div><p className="eyebrow">START BUILDING</p><h1>Your next space starts here.</h1><p>Import your 360° photos to connect scenes and build an interactive walkthrough.</p><div className="empty-actions"><button className="button button-primary" onClick={() => inputRef.current?.click()}><Upload size={16}/> Import panorama photos</button><button className="button button-quiet" disabled={isBusy} onClick={() => void loadSample()}><WandSparkles size={15}/> Try a sample tour</button></div><span className="micro-copy"><ShieldCheck size={13}/> No account. No upload. Your files stay on this device.</span></div>}
           {activeScene && !preview && <div className="bottom-statusbar"><div className="statusbar-left"><span><MousePointer2 size={12}/> Drag to look around</span><span><ZoomIn size={13}/> Scroll to zoom</span></div><div className="statusbar-right">{activeScene.hotspots.length} hotspot{activeScene.hotspots.length === 1 ? '' : 's'} <span className="status-separator">·</span> {activeScene.width} × {activeScene.height}</div></div>}
         </> : <GooglePanel project={project} clientId={clientId} setClientId={setClientId} saveClient={saveClient} authorize={authorize} tokenReady={!!token} busy={googleBusy} progress={googleProgress} results={googleResults} publish={publish} patchScene={patchScene} back={() => setTab('editor')}/>}
       </section>
@@ -385,9 +411,10 @@ export default function App() {
       {tab === 'editor' && <aside className={'properties-sidebar ' + (mobilePanel === 'properties' ? 'mobile-panel-open' : '')}>
         <div className="panel-heading properties-heading"><div><p className="eyebrow">INSPECTOR</p><h2>{selectedHotspot ? 'Hotspot' : activeScene ? 'Scene settings' : 'Properties'}</h2></div><button className="icon-button mobile-only" onClick={() => setMobilePanel(null)} aria-label="Close properties"><X size={16}/></button>{selectedHotspot && <span className="selection-indicator"><span/> SELECTED</span>}</div>
         {!activeScene ? <div className="property-empty"><Settings2 size={23}/><strong>Nothing selected</strong><span>Import a scene to start editing properties.</span></div> : selectedHotspot ? <div className="property-content">
-          <div className="property-section"><div className="property-section-title"><Link2 size={15}/><h3>Navigation hotspot</h3></div><p className="field-help">Connect this point to another panorama.</p><label className="field-label" htmlFor="hotspot-label">Label</label><input id="hotspot-label" className="text-input" maxLength={48} value={selectedHotspot.label} onChange={(e) => patchHotspot({ label: e.target.value })}/><label className="field-label" htmlFor="hotspot-target">Destination scene</label><select id="hotspot-target" className="select-input" value={selectedHotspot.targetSceneId} onChange={(e) => patchHotspot({ targetSceneId: e.target.value })}><option value="">Choose a scene…</option>{project.scenes.filter((s) => s.id !== activeScene.id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>{!selectedTargetExists && <div className="inline-warning"><CircleAlert size={14}/> Choose a valid destination.</div>}</div>
-          <div className="property-section"><div className="property-section-title"><MapPin size={15}/><h3>Position</h3></div><p className="field-help">Spherical coordinates stay attached to the panorama as you look around.</p><div className="field-row"><div className="field-group"><label className="field-label" htmlFor="hotspot-yaw">Yaw (°)</label><input id="hotspot-yaw" className="text-input" type="number" step="0.1" value={selectedHotspot.yaw} onChange={(e) => patchHotspot({ yaw: numeric(e.target.value) ?? 0 })}/></div><div className="field-group"><label className="field-label" htmlFor="hotspot-pitch">Pitch (°)</label><input id="hotspot-pitch" className="text-input" type="number" min="-90" max="90" step="0.1" value={selectedHotspot.pitch} onChange={(e) => patchHotspot({ pitch: Math.max(-90, Math.min(90, numeric(e.target.value) ?? 0)) })}/></div></div><button className="button button-subtle button-full reposition-button" onClick={() => setMode('reposition')}><MapPin size={15}/> Reposition in panorama</button></div>
-          <div className="property-section"><div className="property-section-title"><Settings2 size={15}/><h3>Actions</h3></div><div className="property-action-row"><button className="button button-subtle" onClick={duplicateHotspot}><Copy size={14}/> Duplicate</button><button className="button button-danger-soft" onClick={() => deleteHotspot(selectedHotspot.id)}><Trash2 size={14}/> Delete</button></div></div><div className="tip-card"><Info size={15}/><span>Preview mode follows the arrow. Edit mode lets you change its destination and position.</span></div>
+          <div className="property-section"><div className="property-section-title"><Link2 size={15}/><h3>Hotspot connection</h3></div><p className="field-help">Choose where this marker takes visitors. Other appearance and action settings are below.</p><label className="field-label" htmlFor="hotspot-target">Destination scene</label><select id="hotspot-target" className="select-input" value={selectedHotspot.targetSceneId} onChange={(e) => patchHotspot({ targetSceneId: e.target.value })}><option value="">Choose a scene…</option>{project.scenes.filter((s) => s.id !== activeScene.id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>{selectedHotspot.action === 'navigate' && !selectedTargetExists && <div className="inline-warning"><CircleAlert size={14}/> Choose a valid destination.</div>}</div>
+          <div className="property-section"><div className="property-section-title"><MapPin size={15}/><h3>Spherical position</h3></div><p className="field-help">Exact panorama coordinates. You can also drag the marker with the reposition tool.</p><div className="field-row"><div className="field-group"><label className="field-label" htmlFor="hotspot-yaw">Yaw (°)</label><input id="hotspot-yaw" className="text-input" type="number" step="0.1" value={selectedHotspot.yaw} onChange={(e) => patchHotspot({ yaw: numeric(e.target.value) ?? 0 })}/></div><div className="field-group"><label className="field-label" htmlFor="hotspot-pitch">Pitch (°)</label><input id="hotspot-pitch" className="text-input" type="number" min="-90" max="90" step="0.1" value={selectedHotspot.pitch} onChange={(e) => patchHotspot({ pitch: Math.max(-90, Math.min(90, numeric(e.target.value) ?? 0)) })}/></div></div><button className="button button-subtle button-full reposition-button" onClick={() => { setTinyPlanet(false); setMode('reposition'); }}><MapPin size={15}/> Reposition in panorama</button></div>
+          <HotspotAddonPanel hotspot={selectedHotspot} onChange={patchHotspot}/>
+          <div className="property-section"><div className="property-section-title"><Settings2 size={15}/><h3>Manage hotspot</h3></div><div className="property-action-row"><button className="button button-subtle" onClick={duplicateHotspot}><Copy size={14}/> Duplicate</button><button className="button button-danger-soft" onClick={() => deleteHotspot(selectedHotspot.id)}><Trash2 size={14}/> Delete</button></div></div><div className="tip-card"><Info size={15}/><span>Your add-on styles are saved with this project and included in project backups.</span></div>
         </div> : <div className="property-content">
           <div className="scene-property-preview"><img src={activeScene.imageUrl} alt={activeScene.name}/><div className="scene-preview-overlay"><span>{activeIndex + 1} / {project.scenes.length}</span><span>{bytesLabel(activeScene.size)}</span></div></div>
           <div className="property-section"><div className="property-section-title"><FileImage size={15}/><h3>Scene details</h3></div><label className="field-label" htmlFor="scene-name">Scene name</label><input id="scene-name" className="text-input" maxLength={80} value={activeScene.name} onChange={(e) => patchScene(activeScene.id, { name: e.target.value }, true)}/><div className="detail-grid"><div><span>Dimensions</span><strong>{activeScene.width} × {activeScene.height}</strong></div><div><span>File size</span><strong>{bytesLabel(activeScene.size)}</strong></div><div><span>Aspect ratio</span><strong>{(activeScene.width / activeScene.height).toFixed(2)}:1</strong></div><div><span>Format</span><strong>{activeScene.mimeType.split('/')[1]?.toUpperCase() || 'IMAGE'}</strong></div></div>{activeScene.width / activeScene.height > 1.97 && activeScene.width / activeScene.height < 2.03 ? <div className="check-row check-good"><Check size={15}/><span>Dimensions look like a 2:1 panorama.</span></div> : <div className="check-row check-warn"><CircleAlert size={15}/><span>Not close to 2:1. Verify that this is a full 360° image before publishing.</span></div>}</div>
@@ -398,8 +425,9 @@ export default function App() {
       </aside>}
     </main>
     <footer className="app-footer"><span><span className="footer-dot"/> All core editing features are free</span><span className="footer-right"><ShieldCheck size={13}/> Local-first editing <span className="footer-divider">·</span> <button onClick={() => notify('Export a .luxe360.json backup to move projects between browsers or devices.', 'info')}>Backup & privacy</button><span className="footer-divider">·</span> v1.0</span></footer>
-    <div className="mobile-bottom-nav"><button onClick={() => setMobilePanel(mobilePanel === 'scenes' ? null : 'scenes')}><Layers3 size={18}/><span>Scenes</span></button><button onClick={() => { setTab('editor'); setMobilePanel(null); }}><MousePointer2 size={18}/><span>Editor</span></button><button onClick={() => setMobilePanel(mobilePanel === 'properties' ? null : 'properties')}><Settings2 size={18}/><span>Properties</span></button><button onClick={() => { setTab('google'); setMobilePanel(null); }}><Globe size={18}/><span>Google</span></button></div>
+    <div className="mobile-bottom-nav"><button onClick={() => { setTab('editor'); setMobilePanel(mobilePanel === 'scenes' ? null : 'scenes'); }}><Layers3 size={18}/><span>Scenes</span></button><button onClick={() => { setTab('editor'); setMobilePanel(null); }}><MousePointer2 size={18}/><span>Editor</span></button><button onClick={() => { setTab('editor'); setMobilePanel(mobilePanel === 'properties' ? null : 'properties'); }}><Settings2 size={18}/><span>Properties</span></button><button onClick={() => { setTab('google'); setMobilePanel(null); }}><Globe size={18}/><span>Google</span></button></div>
     <Toast message={notice} kind={noticeType} dismiss={() => setNotice('')}/>
+    {!loaded && <div className="loading-overlay" role="status"><LoaderCircle size={19} className="spin"/> Restoring your local project…</div>}
   </div>;
 }
 
