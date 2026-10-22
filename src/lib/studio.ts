@@ -1,7 +1,3 @@
-import JSZip from 'jszip';
-import pannellumJs from 'pannellum/build/pannellum.js?raw';
-import pannellumCss from 'pannellum/build/pannellum.css?raw';
-
 export interface Hotspot {
   id: string;
   label: string;
@@ -238,41 +234,6 @@ export async function createSampleProject(): Promise<Project> {
   scenes[1].hotspots.push({ id: newId(), label: 'Back to entrance', targetSceneId: scenes[0].id, pitch: -3, yaw: -150 }, { id: newId(), label: 'Service counter', targetSceneId: scenes[2].id, pitch: -1, yaw: 68 });
   scenes[2].hotspots.push({ id: newId(), label: 'Back to showroom', targetSceneId: scenes[1].id, pitch: -2, yaw: -125 });
   return { id: newId(), name: 'Local sample tour', updatedAt: Date.now(), scenes, startSceneId: scenes[0].id };
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-export async function exportTourZip(project: Project): Promise<Blob> {
-  if (!project.scenes.length) throw new Error('Add at least one panorama before exporting a tour.');
-  const zip = new JSZip();
-  const files: Record<string, string> = {};
-  const used = new Set<string>();
-  for (const [index, scene] of project.scenes.entries()) {
-    let slug = scene.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `scene-${index + 1}`;
-    if (used.has(slug)) slug += `-${index + 1}`;
-    used.add(slug);
-    const ext = scene.mimeType === 'image/png' ? 'png' : scene.mimeType === 'image/webp' ? 'webp' : 'jpg';
-    files[scene.id] = `assets/${slug}.${ext}`;
-    zip.file(files[scene.id], scene.blob);
-  }
-  const tour = {
-    title: project.name,
-    default: { firstScene: project.startSceneId && files[project.startSceneId] ? project.startSceneId : project.scenes[0].id, autoLoad: true, showControls: true, sceneFadeDuration: 350 },
-    scenes: Object.fromEntries(project.scenes.map((scene) => [scene.id, {
-      title: scene.name, type: 'equirectangular', panorama: files[scene.id],
-      hotSpots: scene.hotspots.filter((h) => h.targetSceneId && files[h.targetSceneId]).map((h) => ({ id: h.id, pitch: h.pitch, yaw: h.yaw, type: 'scene', text: h.label, sceneId: h.targetSceneId }))
-    }]))
-  };
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(project.name)}</title><link rel="stylesheet" href="vendor/pannellum.css"><link rel="stylesheet" href="vendor/tour.css"></head><body><header><strong>${escapeHtml(project.name)}</strong><span>360° virtual tour</span></header><main id="panorama"></main><footer>Tour created with Luxe360 Studio · Select a directional arrow to move between scenes</footer><script src="vendor/pannellum.js"></script><script>const tour=${JSON.stringify(tour)};pannellum.viewer('panorama',tour);</script></body></html>`;
-  zip.file('index.html', html);
-  zip.file('tour.json', JSON.stringify(tour, null, 2));
-  zip.file('vendor/pannellum.js', pannellumJs);
-  zip.file('vendor/pannellum.css', pannellumCss);
-  zip.file('vendor/tour.css', 'html,body{margin:0;height:100%;font-family:system-ui,sans-serif;color:#202522;background:#f6f6f2}header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#fff;border-bottom:1px solid #dedfd8}header strong{font-size:14px}header span,footer{font-size:11px;color:#6e746d}footer{height:32px;display:flex;align-items:center;justify-content:center}#panorama{height:calc(100% - 84px);width:100%}');
-  zip.file('README.txt', 'Luxe360 Studio standalone tour\n\nKeep the relative folder structure intact. Host these files as a static website or use a local static HTTP server if the browser blocks file:// resources. This website export is separate from Google Maps publication.');
-  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 5 } });
 }
 
 function createXmp(width: number, height: number, heading: number) {

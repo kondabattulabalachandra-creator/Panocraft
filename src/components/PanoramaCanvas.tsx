@@ -36,9 +36,36 @@ export default function PanoramaCanvas({ scene, allScenes, mode, selectedHotspot
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const hotspotsRef = useRef<string[]>([]);
-  const callbackRef = useRef({ mode, selectedHotspotId, preview, allScenes, onPlace, onSelect, onNavigate });
+  const callbackRef = useRef({ scene, mode, selectedHotspotId, preview, allScenes, onPlace, onSelect, onNavigate });
   const [error, setError] = useState('');
-  callbackRef.current = { mode, selectedHotspotId, preview, allScenes, onPlace, onSelect, onNavigate };
+  callbackRef.current = { scene, mode, selectedHotspotId, preview, allScenes, onPlace, onSelect, onNavigate };
+
+  const syncHotspots = () => {
+    const viewer = viewerRef.current;
+    if (!viewer || !viewer.isLoaded()) return;
+    hotspotsRef.current.forEach((id) => { try { viewer.removeHotSpot(id); } catch { /* Ignore stale ids while refreshing. */ } });
+    hotspotsRef.current = [];
+    const latest = callbackRef.current;
+    latest.scene.hotspots.forEach((hotspot) => {
+      const target = latest.allScenes.find((item) => item.id === hotspot.targetSceneId);
+      const id = 'luxe-' + hotspot.id;
+      try {
+        viewer.addHotSpot({
+          id, pitch: hotspot.pitch, yaw: hotspot.yaw, type: 'info', cssClass: 'luxe360-hotspot',
+          createTooltipFunc: (element: HTMLElement) => decorateHotspot(element, hotspot, latest.selectedHotspotId === hotspot.id && !latest.preview, !target),
+          clickHandlerFunc: () => {
+            const current = callbackRef.current;
+            if (!current.preview) current.onSelect(hotspot.id);
+            else if (target && hotspot.targetSceneId) current.onNavigate(hotspot.targetSceneId);
+          },
+          text: hotspot.label || (target ? 'Go to ' + target.name : 'Choose a destination')
+        });
+        hotspotsRef.current.push(id);
+      } catch { /* One malformed hotspot should not break the viewer. */ }
+    });
+  };
+  const syncHotspotsRef = useRef(syncHotspots);
+  syncHotspotsRef.current = syncHotspots;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -53,7 +80,7 @@ export default function PanoramaCanvas({ scene, allScenes, mode, selectedHotspot
       });
       viewerRef.current = viewer;
       viewer.on('error', () => setError('This image could not be rendered. Check that it is a readable panorama file.'));
-      viewer.on('load', () => setError(''));
+      viewer.on('load', () => { setError(''); syncHotspotsRef.current(); });
       return () => {
         hotspotsRef.current = [];
         try { viewer.destroy(); } catch { /* The viewer may already be disposed. */ }
@@ -65,27 +92,7 @@ export default function PanoramaCanvas({ scene, allScenes, mode, selectedHotspot
   }, [scene.id, scene.imageUrl]);
 
   useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    hotspotsRef.current.forEach((id) => { try { viewer.removeHotSpot(id); } catch { /* Ignore stale ids while refreshing. */ } });
-    hotspotsRef.current = [];
-    scene.hotspots.forEach((hotspot) => {
-      const target = allScenes.find((item) => item.id === hotspot.targetSceneId);
-      const id = 'luxe-' + hotspot.id;
-      try {
-        viewer.addHotSpot({
-          id, pitch: hotspot.pitch, yaw: hotspot.yaw, type: 'info', cssClass: 'luxe360-hotspot',
-          createTooltipFunc: (element: HTMLElement) => decorateHotspot(element, hotspot, selectedHotspotId === hotspot.id && !preview, !target),
-          clickHandlerFunc: () => {
-            const latest = callbackRef.current;
-            if (!latest.preview) latest.onSelect(hotspot.id);
-            else if (target && hotspot.targetSceneId) latest.onNavigate(hotspot.targetSceneId);
-          },
-          text: hotspot.label || (target ? 'Go to ' + target.name : 'Choose a destination')
-        });
-        hotspotsRef.current.push(id);
-      } catch { /* One malformed hotspot should not break the viewer. */ }
-    });
+    syncHotspotsRef.current();
   }, [scene.id, scene.hotspots, allScenes, selectedHotspotId, preview]);
 
   const onClick = (event: MouseEvent<HTMLDivElement>) => {

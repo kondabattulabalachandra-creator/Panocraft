@@ -3,12 +3,13 @@ import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BadgeCheck, Check, ChevronDown,
   CircleAlert, Copy, ExternalLink, FileArchive, FileImage, FileJson, FolderOpen,
   Globe, GripVertical, ImagePlus, Info, Layers3, Link2, LoaderCircle, MapPin,
-  Maximize2, MousePointer2, PackageCheck, Plus, Redo2, Save, Settings2,
-  ShieldCheck, Trash2, Undo2, Upload, WandSparkles, X, ZoomIn
+  Maximize2, Moon, MousePointer2, PackageCheck, Plus, Redo2, Save, Settings2,
+  ShieldCheck, Sun, Trash2, Undo2, Upload, WandSparkles, X, ZoomIn
 } from 'lucide-react';
 import PanoramaCanvas from './components/PanoramaCanvas';
+import luxeGrowthLogo from './assets/luxeegrowth-logo.jpeg';
 import {
-  cloneProject, createProject, createSampleProject, exportProjectJson, exportTourZip,
+  cloneProject, createProject, createSampleProject, exportProjectJson,
   importProjectJson, loadGoogleClientId, loadProject, newId, prepareGoogleJpeg,
   saveGoogleClientId, saveProject, type Hotspot, type Project, type Scene
 } from './lib/studio';
@@ -84,6 +85,9 @@ export default function App() {
   const [tab, setTab] = useState<'editor' | 'google'>('editor');
   const [mode, setMode] = useState<EditMode>('select');
   const [preview, setPreview] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try { return localStorage.getItem('luxe360-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+  });
   const [saveState, setSaveState] = useState<'loading' | 'saving' | 'saved' | 'error'>('loading');
   const [loaded, setLoaded] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
@@ -133,6 +137,11 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [project, loaded, notify]);
 
+  useEffect(() => {
+    document.documentElement.style.colorScheme = theme;
+    try { localStorage.setItem('luxe360-theme', theme); } catch { /* Theme persistence is optional. */ }
+  }, [theme]);
+
   useEffect(() => () => { if (toastRef.current) window.clearTimeout(toastRef.current); }, []);
 
   const pushProject = (next: Project) => {
@@ -151,6 +160,30 @@ export default function App() {
     const next = redoHistory[redoHistory.length - 1]; setRedoHistory((items) => items.slice(0, -1)); setProject(next);
     setActiveId(next.scenes.some((s) => s.id === activeId) ? activeId : next.scenes[0]?.id || null); setHotspotId(null); setMode('select');
   };
+  const actionsRef = useRef({ undo, redo });
+  actionsRef.current = { undo, redo };
+  const keyboardStateRef = useRef({ preview, sceneCount: project.scenes.length });
+  keyboardStateRef.current = { preview, sceneCount: project.scenes.length };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      const key = event.key.toLowerCase();
+      const modifier = event.ctrlKey || event.metaKey;
+      if (modifier && key === 'z') {
+        event.preventDefault();
+        if (!keyboardStateRef.current.preview) (event.shiftKey ? actionsRef.current.redo : actionsRef.current.undo)();
+        return;
+      }
+      if (modifier && key === 'y') { event.preventDefault(); if (!keyboardStateRef.current.preview) actionsRef.current.redo(); return; }
+      if (modifier || event.altKey) return;
+      if (event.key === 'Escape') { setPreview(false); setMode('select'); setMenuOpen(false); setMobilePanel(null); return; }
+      if (key === 'v') { setMode('select'); return; }
+      if (key === 'h' && !keyboardStateRef.current.preview && keyboardStateRef.current.sceneCount > 1) { setMode('add'); setHotspotId(null); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const importPhotos = async (files: FileList | File[]) => {
     const selected = Array.from(files).filter((f) => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name));
@@ -241,7 +274,7 @@ export default function App() {
     setIsBusy(false); setMenuOpen(false);
   };
   const exportTour = async () => {
-    setIsBusy(true); try { downloadBlob(await exportTourZip(project), (project.name || 'luxe360-tour').replace(/[^\w-]+/g, '-').toLowerCase() + '-tour.zip'); notify('Standalone tour ZIP exported.', 'success'); }
+    setIsBusy(true); try { const { exportTourZip } = await import('./lib/tour-export'); downloadBlob(await exportTourZip(project), (project.name || 'luxe360-tour').replace(/[^\w-]+/g, '-').toLowerCase() + '-tour.zip'); notify('Standalone tour ZIP exported.', 'success'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Tour export failed.', 'error'); }
     setIsBusy(false); setMenuOpen(false);
   };
@@ -310,14 +343,15 @@ export default function App() {
   const selectedTargetExists = !!selectedHotspot && project.scenes.some((s) => s.id === selectedHotspot.targetSceneId);
   const activeIndex = activeScene ? project.scenes.findIndex((s) => s.id === activeScene.id) : -1;
 
-  return <div className="app-shell">
+  return <div className={'app-shell' + (theme === 'dark' ? ' theme-dark' : '')}>
     <header className="topbar">
-      <div className="brand-lockup"><div className="brand-mark"><Layers3 size={20}/></div><div className="brand-copy"><span className="brand-name">Luxe360 <b>Studio</b></span><span className="brand-subtitle">360° TOUR EDITOR</span></div></div>
+      <div className="brand-lockup"><img className="brand-logo" src={luxeGrowthLogo} alt="Luxe Growth"/><div className="brand-copy"><span className="brand-name">Luxe360 <b>Studio</b></span><span className="brand-subtitle">360° TOUR EDITOR</span></div></div>
       <div className="topbar-divider"/>
       <div className="project-title-wrap"><input className="project-name-input" aria-label="Project name" value={project.name} onChange={(e) => setProject({ ...project, name: e.target.value, updatedAt: Date.now() })}/><div className="save-indicator">{saveState === 'saving' ? <LoaderCircle size={13} className="spin"/> : saveState === 'error' ? <CircleAlert size={13}/> : <Check size={13}/>}<span>{saveState === 'loading' ? 'Loading' : saveState === 'saving' ? 'Saving' : saveState === 'error' ? 'Save issue' : 'Saved locally'}</span></div></div>
       <div className="topbar-spacer"/>
       <div className="topbar-actions">
-        <button className="icon-button history-button" title="Undo" aria-label="Undo" disabled={!history.length || preview} onClick={undo}><Undo2 size={17}/></button><button className="icon-button history-button" title="Redo" aria-label="Redo" disabled={!redoHistory.length || preview} onClick={redo}><Redo2 size={17}/></button><div className="action-divider"/>
+        <button className="icon-button history-button" title="Undo (Ctrl/⌘+Z)" aria-label="Undo" aria-keyshortcuts="Control+Z Meta+Z" disabled={!history.length || preview} onClick={undo}><Undo2 size={17}/></button><button className="icon-button history-button" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z" disabled={!redoHistory.length || preview} onClick={redo}><Redo2 size={17}/></button><div className="action-divider"/>
+        <button className="icon-button theme-toggle" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}</button>
         <button className={'tab-button ' + (tab === 'editor' ? 'tab-button-active' : '')} onClick={() => { setTab('editor'); setPreview(false); }}><MousePointer2 size={15}/> Editor</button><button className={'tab-button ' + (tab === 'google' ? 'tab-button-active' : '')} onClick={() => { setTab('google'); setPreview(false); setMode('select'); }}><Globe size={15}/> Google publishing</button>
         <div className="project-menu-wrap"><button className="button button-quiet" onClick={() => setMenuOpen((v) => !v)}><FolderOpen size={16}/> Project <ChevronDown size={14}/></button>{menuOpen && <div className="dropdown-menu"><button onClick={() => { void saveProject(project).then(() => notify('Project saved locally.', 'success')).catch((e: unknown) => notify(e instanceof Error ? e.message : 'Save failed.', 'error')); setMenuOpen(false); }}><Save size={15}/> Save now</button><button onClick={exportProject} disabled={isBusy}><FileJson size={15}/> Export project backup</button><button onClick={() => backupRef.current?.click()}><Upload size={15}/> Import project backup</button><button onClick={exportTour} disabled={isBusy}><FileArchive size={15}/> Export standalone tour ZIP</button></div>}</div>
         {tab === 'editor' && <button className={'button ' + (preview ? 'button-dark' : 'button-primary')} onClick={() => { setPreview((v) => !v); setMode('select'); setHotspotId(null); }}>{preview ? <X size={15}/> : <Maximize2 size={15}/>} {preview ? 'Exit preview' : 'Preview tour'}</button>}
@@ -342,7 +376,7 @@ export default function App() {
 
       <section className="editor-main">
         {tab === 'editor' ? <>
-          <div className="canvas-toolbar"><div className="canvas-location"><span className="canvas-breadcrumb">TOUR EDITOR</span>{activeScene && <><ChevronDown size={13} className="breadcrumb-chevron"/><span className="canvas-current">{activeScene.name}</span></>}</div><div className="canvas-tools">{activeScene && <span className="aspect-chip">{(activeScene.width / activeScene.height).toFixed(2)}:1</span>}<button className="canvas-tool" aria-pressed={mode === 'select'} disabled={preview || !activeScene} onClick={() => setMode('select')}><MousePointer2 size={15}/><span>Select</span></button><button className={'canvas-tool ' + (mode === 'add' ? 'canvas-tool-active' : '')} aria-pressed={mode === 'add'} disabled={preview || !activeScene || project.scenes.length < 2} onClick={() => { setMode(mode === 'add' ? 'select' : 'add'); setHotspotId(null); }}><Plus size={15}/><span>Add hotspot</span></button>{mode !== 'select' && <span className="mode-hint">{mode === 'add' ? 'Click to place' : 'Click to reposition'}</span>}</div></div>
+          <div className="canvas-toolbar"><div className="canvas-location"><span className="canvas-breadcrumb">TOUR EDITOR</span>{activeScene && <><ChevronDown size={13} className="breadcrumb-chevron"/><span className="canvas-current">{activeScene.name}</span></>}</div><div className="canvas-tools">{activeScene && <span className="aspect-chip">{(activeScene.width / activeScene.height).toFixed(2)}:1</span>}<button className="canvas-tool" title="Select mode (V)" aria-keyshortcuts="V" aria-pressed={mode === 'select'} disabled={preview || !activeScene} onClick={() => setMode('select')}><MousePointer2 size={15}/><span>Select</span></button><button className={'canvas-tool ' + (mode === 'add' ? 'canvas-tool-active' : '')} title="Add hotspot (H)" aria-keyshortcuts="H" aria-pressed={mode === 'add'} disabled={preview || !activeScene || project.scenes.length < 2} onClick={() => { setMode(mode === 'add' ? 'select' : 'add'); setHotspotId(null); }}><Plus size={15}/><span>Add hotspot</span></button>{mode !== 'select' && <span className="mode-hint">{mode === 'add' ? 'Click to place' : 'Click to reposition'}</span>}</div></div>
           {activeScene ? <div className="canvas-wrap"><PanoramaCanvas scene={activeScene} allScenes={project.scenes} mode={preview ? 'select' : mode} selectedHotspotId={hotspotId} preview={preview} onPlace={placeHotspot} onSelect={(id) => { setHotspotId(id); setMode('select'); if (window.innerWidth < 900) setMobilePanel('properties'); }} onNavigate={(id) => { setActiveId(id); setHotspotId(null); }}/>{preview && <div className="preview-badge"><span className="preview-live-dot"/> Tour preview <span>·</span> {activeIndex + 1} of {project.scenes.length}</div>}{project.scenes.length === 1 && !preview && <div className="canvas-bottom-note"><Info size={13}/> Import another scene to connect navigation hotspots.</div>}</div> : <div className="canvas-empty"><div className="empty-canvas-art"><div className="empty-globe"><Globe size={36}/></div><span className="orbit orbit-one"/><span className="orbit orbit-two"/></div><p className="eyebrow">START BUILDING</p><h1>Your next space starts here.</h1><p>Import your 360° photos to connect scenes and build an interactive walkthrough.</p><div className="empty-actions"><button className="button button-primary" onClick={() => inputRef.current?.click()}><Upload size={16}/> Import panorama photos</button><button className="button button-quiet" disabled={isBusy} onClick={() => void loadSample()}><WandSparkles size={15}/> Try a sample tour</button></div><span className="micro-copy"><ShieldCheck size={13}/> No account. No upload. Your files stay on this device.</span></div>}
           {activeScene && !preview && <div className="bottom-statusbar"><div className="statusbar-left"><span><MousePointer2 size={12}/> Drag to look around</span><span><ZoomIn size={13}/> Scroll to zoom</span></div><div className="statusbar-right">{activeScene.hotspots.length} hotspot{activeScene.hotspots.length === 1 ? '' : 's'} <span className="status-separator">·</span> {activeScene.width} × {activeScene.height}</div></div>}
         </> : <GooglePanel project={project} clientId={clientId} setClientId={setClientId} saveClient={saveClient} authorize={authorize} tokenReady={!!token} busy={googleBusy} progress={googleProgress} results={googleResults} publish={publish} patchScene={patchScene} back={() => setTab('editor')}/>}

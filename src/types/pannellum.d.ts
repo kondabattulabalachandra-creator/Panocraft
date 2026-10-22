@@ -2,6 +2,7 @@ interface Window {
   pannellum: {
     viewer: (container: HTMLElement, config: Record<string, unknown>) => {
       destroy: () => void;
+      isLoaded: () => boolean;
       on: (name: string, callback: (...args: unknown[]) => void) => void;
       mouseEventToCoords: (event: MouseEvent) => number[];
       addHotSpot: (hotspot: Record<string, unknown>) => unknown;
