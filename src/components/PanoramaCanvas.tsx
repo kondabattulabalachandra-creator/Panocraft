@@ -22,6 +22,9 @@ type Props = {
 type Viewer = ReturnType<Window['pannellum']['viewer']>;
 
 function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boolean, broken: boolean) {
+  Array.from(element.children).forEach((child) => {
+    if (child.classList.contains('luxe-hotspot-arrow') || child.classList.contains('luxe-hotspot-label')) child.remove();
+  });
   element.classList.add('luxe-hotspot', 'luxe-hotspot-position-' + (hotspot.placementMode || '2d'));
   if (selected) element.classList.add('luxe-hotspot-selected');
   if (broken) element.classList.add('luxe-hotspot-broken');

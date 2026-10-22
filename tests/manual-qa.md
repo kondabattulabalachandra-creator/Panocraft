@@ -62,3 +62,5 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 **Build and base path.** `npm run typecheck`, `npm run build`, and `git diff --check` passed. The production preview served `/Panocraft/` with HTTP 200 and rendered the sample tour.
 
 **Responsive check.** At 360px and 768px, `.workspace` and `.scene-strip` measured the full viewport width and document/body widths equaled the viewport, with no horizontal page overflow. The bottom navigation opened Scenes, switched to Details, and returned to Editor with both side panels closed. At 1024px the desktop three-column workspace and sidebars remained present. The production build was tested in same-origin browser frames.
+
+6. Select a hotspot and trigger repeated appearance/selection redraws; verify every marker retains exactly one icon and at most one label, including with an uploaded custom image.
