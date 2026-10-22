@@ -32,3 +32,10 @@ Run `npm ci`, `npm run typecheck`, and `npm run build`. Serve the production out
 2. Add a reciprocal hotspot from room B back to room A. Follow A→B in preview and verify the initial view in B faces toward that return hotspot; follow B→A and verify the reverse direction.
 3. Remove the reciprocal connection in B and verify automatic arrival falls back to the opposite of the exit yaw. Disable automatic facing on one A→B hotspot, set arrival yaw/pitch, and verify only that connection uses the custom direction.
 4. Create two different links into room B with different manual directions; verify each link preserves its own direction across reload, project backup restore, and standalone ZIP export.
+
+## Thumbnail-to-panorama connections
+
+1. Drag a non-active scene thumbnail onto several distinct points in the panorama. Confirm the selected source scene receives a navigation hotspot for exactly the dragged destination and that yaw/pitch match the drop location.
+2. Drag the active scene thumbnail onto its own panorama. Confirm a clear rejection and no self-link is created.
+3. Drag a thumbnail onto another scene card and confirm existing scene-reorder behavior still works.
+4. Choose **Add connection**, click a point in the panorama, and verify the new connection has no automatic destination. Select a destination in the inspector and confirm it becomes a valid navigation connection. Check this flow at narrow/mobile widths where drag-and-drop may not be available.

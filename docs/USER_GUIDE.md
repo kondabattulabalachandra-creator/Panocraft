@@ -8,7 +8,9 @@ Scenes appear in the left panel. Select one to edit it, use its quick controls t
 
 ## Create and tune navigation hotspots
 
-Select a scene, choose **Add hotspot** (or press `H`), then click the desired point in the panorama. New navigation markers use a tilted floor-arrow style by default; choose 2D or wall placement when that fits better. A hotspot stores spherical pitch and yaw values, so its position remains attached to the panorama as you look around. In the inspector:
+Drag a scene thumbnail from the sidebar onto the desired point in the panorama to create a connection directly. Panocraft highlights the viewer as a drop target and places the marker at that exact panorama position. A scene cannot connect to itself. If drag-and-drop is unavailable, choose **Add connection** (or press `H`), click the desired point, then choose the destination in the inspector. New connections do not choose a destination automatically. This thumbnail-to-panorama workflow follows the connection interaction demonstrated in [Kuula’s guide](https://kuula.co/help/connections).
+
+New navigation markers use a tilted floor-arrow style by default; choose 2D or wall placement when that fits better. A hotspot stores spherical pitch and yaw values, so its position remains attached to the panorama as you look around. In the inspector:
 
 - Give the marker a short label and choose a destination scene.
 - In **Arrival view**, each connection can set its own starting camera direction. **Face back toward previous room automatically** uses a matching return hotspot in the destination when present, otherwise it turns back from the exit direction. Turn this off to enter an exact arrival yaw and pitch for that connection.

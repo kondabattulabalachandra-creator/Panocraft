@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import 'pannellum/build/pannellum.js';
 import 'pannellum/build/pannellum.css';
 import type { Hotspot, Scene } from '../lib/studio';
 const signedAngle = (degrees: number) => ((degrees + 180) % 360 + 360) % 360 - 180;
+const CONNECTION_DRAG_TYPE = 'text/luxe360-connection';
 
 type Props = {
   scene: Scene;
@@ -14,6 +15,7 @@ type Props = {
   preview: boolean;
   tinyPlanet: boolean;
   onPlace: (pitch: number, yaw: number) => void;
+  onSceneDrop: (sceneId: string, pitch: number, yaw: number) => void;
   onSelect: (id: string) => void;
   onNavigate: (id: string, yaw: number, pitch: number) => void;
 };
@@ -75,14 +77,15 @@ function decorateHotspot(element: HTMLElement, hotspot: Hotspot, selected: boole
   element.setAttribute('aria-label', hotspot.label || 'Tour hotspot');
 }
 
-export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPitch, mode, selectedHotspotId, preview, tinyPlanet, onPlace, onSelect, onNavigate }: Props) {
+export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPitch, mode, selectedHotspotId, preview, tinyPlanet, onPlace, onSceneDrop, onSelect, onNavigate }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tinyPlanetCanvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const hotspotsRef = useRef<string[]>([]);
-  const callbackRef = useRef({ scene, mode, selectedHotspotId, preview, allScenes, onPlace, onSelect, onNavigate });
+  const [connectionDropActive, setConnectionDropActive] = useState(false);
+  const callbackRef = useRef({ scene, mode, selectedHotspotId, preview, allScenes, onPlace, onSceneDrop, onSelect, onNavigate });
   const [error, setError] = useState('');
-  callbackRef.current = { scene, mode, selectedHotspotId, preview, allScenes, onPlace, onSelect, onNavigate };
+  callbackRef.current = { scene, mode, selectedHotspotId, preview, allScenes, onPlace, onSceneDrop, onSelect, onNavigate };
 
   const syncHotspots = () => {
     const viewer = viewerRef.current;
@@ -212,10 +215,37 @@ export default function PanoramaCanvas({ scene, allScenes, initialYaw, initialPi
     } catch { setError('Could not read the clicked panorama position. Try again.'); }
   };
 
+  const onConnectionDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (callbackRef.current.preview || !Array.from(event.dataTransfer.types).includes(CONNECTION_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setConnectionDropActive(true);
+  };
+  const onConnectionDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+    setConnectionDropActive(false);
+  };
+  const onConnectionDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!Array.from(event.dataTransfer.types).includes(CONNECTION_DRAG_TYPE)) return;
+    event.preventDefault();
+    setConnectionDropActive(false);
+    const state = callbackRef.current;
+    if (state.preview) return;
+    const targetSceneId = event.dataTransfer.getData(CONNECTION_DRAG_TYPE);
+    const viewer = viewerRef.current;
+    if (!targetSceneId || !viewer) return;
+    try {
+      const coords = viewer.mouseEventToCoords(event.nativeEvent);
+      if (coords && Number.isFinite(coords[0]) && Number.isFinite(coords[1])) state.onSceneDrop(targetSceneId, coords[0], coords[1]);
+      else setError('Could not read that drop position. Use Add connection to place it by clicking instead.');
+    } catch { setError('Could not read that drop position. Use Add connection to place it by clicking instead.'); }
+  };
+
   return (
-    <div ref={containerRef} className={'panorama-container ' + (mode !== 'select' ? 'crosshair-mode' : '') + (tinyPlanet ? ' panorama-tiny-planet' : '')} onClick={onClick} role="application" aria-label={tinyPlanet ? 'Interactive tiny planet panorama viewer' : 'Interactive 360 degree panorama viewer'}>
+    <div ref={containerRef} className={'panorama-container ' + (mode !== 'select' ? 'crosshair-mode' : '') + (tinyPlanet ? ' panorama-tiny-planet' : '') + (connectionDropActive ? ' connection-drop-active' : '')} onClick={onClick} onDragOver={onConnectionDragOver} onDragLeave={onConnectionDragLeave} onDrop={onConnectionDrop} role="application" aria-label={tinyPlanet ? 'Interactive tiny planet panorama viewer' : 'Interactive 360 degree panorama viewer'}>
       {error && <div className="viewer-error"><span>!</span>{error}</div>}
-      {mode !== 'select' && <div className="viewer-hint">{mode === 'add' ? 'Click the panorama to place a hotspot' : 'Click the new position for the selected hotspot'}</div>}
+      {mode !== 'select' && <div className="viewer-hint">{mode === 'add' ? 'Click a point, then choose a destination' : 'Click the new position for the selected hotspot'}</div>}
+      {connectionDropActive && <div className="connection-drop-overlay" aria-hidden="true"><div className="connection-drop-card"><span className="connection-drop-icon">+</span><strong>Drop to add connection</strong><span>Hotspot will be placed here</span></div></div>}
       {tinyPlanet && <canvas ref={tinyPlanetCanvasRef} className="tiny-planet-canvas" role="img" aria-label="Tiny planet panorama projection"/>}
       {tinyPlanet && <div className="tiny-planet-badge"><span/> Tiny planet view</div>}
     </div>
